@@ -91,7 +91,12 @@
             <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <h2 class="text-xl font-display font-extrabold text-center">Organizer sign in</h2>
                 <p class="text-sm text-brand-200 text-center mt-1">Sign in to scan tickets for your events.</p>
-                <input id="em" type="email" placeholder="Email" class="w-full mt-4 bg-white/10 border border-white/15 rounded-xl px-3 py-2.5 text-sm placeholder-brand-300 focus:outline-none">
+                <button onclick="doGoogle()" class="w-full mt-4 flex items-center justify-center gap-2 bg-white text-slate-700 hover:bg-slate-100 font-bold py-3 rounded-xl transition">
+                    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 12 2 2 12 2 24s10 22 22 22 22-10 22-22c0-1.5-.2-2.6-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 15.9 2 8.9 6.6 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.5-2.1 14.3-5.6l-6.6-5.6C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C8.7 41.3 15.8 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.6 5.6C41.4 36.5 44 31 44 24c0-1.5-.2-2.6-.4-3.5z"/></svg>
+                    Continue with Google
+                </button>
+                <div class="flex items-center gap-3 my-3"><div class="flex-1 h-px bg-white/15"></div><span class="text-xs text-brand-300">or with email</span><div class="flex-1 h-px bg-white/15"></div></div>
+                <input id="em" type="email" placeholder="Email" class="w-full bg-white/10 border border-white/15 rounded-xl px-3 py-2.5 text-sm placeholder-brand-300 focus:outline-none">
                 <input id="pw" type="password" placeholder="Password" class="w-full mt-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2.5 text-sm placeholder-brand-300 focus:outline-none">
                 <p id="lerr" class="text-red-300 text-sm mt-2 hidden"></p>
                 <button onclick="doLogin()" class="w-full mt-4 bg-brand-600 hover:bg-brand-500 font-bold py-3 rounded-xl">Sign in</button>
@@ -101,6 +106,10 @@
     async function doLogin() {
         const em = $('em').value.trim(), pw = $('pw').value; const err = $('lerr');
         try { await fbAuth.signInWithEmailAndPassword(em, pw); } catch (e) { err.textContent = e.message || 'Sign in failed'; err.classList.remove('hidden'); }
+    }
+    async function doGoogle() {
+        const err = $('lerr');
+        try { const p = new firebase.auth.GoogleAuthProvider(); await fbAuth.signInWithPopup(p); } catch (e) { err.textContent = e.message || 'Google sign-in failed'; err.classList.remove('hidden'); }
     }
     async function logout() { if (fbAuth) await fbAuth.signOut(); else { user = null; render(); } }
 
