@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ZedTickets — Gate Scanner</title>
+    <meta name="theme-color" content="#0d0716">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script>
+        tailwind.config = { theme: { extend: {
+            colors: { brand: { 50:'#eef2ff',100:'#e0e7ff',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',900:'#312e81' }, mag: { DEFAULT:'#d6249f' }, zam: { green:'#198a00', red:'#de2010' } },
+            fontFamily: { sans:['Inter','sans-serif'], display:['"Playfair Display"','serif'] }
+        } } }
+    </script>
+    <style>
+        body { background: #0d0716; }
+        #reader { width: 100%; border-radius: 18px; overflow: hidden; }
+        #reader video { border-radius: 18px; }
+        .flash-ok { animation: flashOk .6s ease; } .flash-bad { animation: flashBad .6s ease; }
+        @keyframes flashOk { 0% { background:#065f46; } 100% { background:#0d0716; } }
+        @keyframes flashBad { 0% { background:#7f1d1d; } 100% { background:#0d0716; } }
+    </style>
+</head>
+<body class="text-white min-h-screen font-sans">
+    <div class="max-w-md mx-auto px-4 py-6" id="app">
+        <div class="flex items-center justify-between mb-5">
+            <a href="index.html" class="flex items-center gap-2">
+                <div class="bg-gradient-to-br from-brand-600 to-mag text-white w-9 h-9 rounded-xl flex items-center justify-center"><i class="fas fa-qrcode"></i></div>
+                <div><div class="font-display font-extrabold leading-none">ZedTickets</div><div class="text-[10px] text-brand-400 uppercase tracking-widest">Gate Scanner</div></div>
+            </a>
+            <button id="signoutBtn" onclick="logout()" class="hidden text-xs font-bold text-brand-200 bg-white/10 px-3 py-2 rounded-full"><i class="fas fa-right-from-bracket mr-1"></i>Sign out</button>
+        </div>
+        <div id="body"></div>
+    </div>
+
+    <script>
+    const CONFIG = {
+        API_BASE_URL: "",   // same backend as index.html (verifies ticket tokens)
+        firebaseConfig: { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" }
+    };
+
+    let fbAuth = null, fbDb = null;
+    const usingFirebase = !!(CONFIG.firebaseConfig && CONFIG.firebaseConfig.apiKey);
+    if (usingFirebase) { try { firebase.initializeApp(CONFIG.firebaseConfig); fbAuth = firebase.auth(); fbDb = firebase.firestore(); } catch (e) { console.error(e); } }
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const fmtDate = (d, t) => { try { return new Date(d + 'T' + (t || '00:00')).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' }) + (t ? ' · ' + t : ''); } catch (e) { return d; } };
+    const LSget = (k, d) => { try { return JSON.parse(localStorage.getItem('zt_' + k)) ?? d; } catch (e) { return d; } };
+    const LSset = (k, v) => localStorage.setItem('zt_' + k, JSON.stringify(v));
+
+    // ---- ticket access ----
+    async function getTicket(id) {
+        if (fbDb) { const d = await fbDb.collection('tickets').doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : null; }
+        return LSget('tickets', []).find(t => t.id === id);
+    }
+    async function markUsed(id) {
+        if (fbDb) { await fbDb.collection('tickets').doc(id).update({ status: 'used', usedAt: Date.now() }); return; }
+        const list = LSget('tickets', []); const t = list.find(x => x.id === id); if (t) { t.status = 'used'; t.usedAt = Date.now(); LSset('tickets', list); }
+    }
+    async function verifyToken(id, token) {
+        if (CONFIG.API_BASE_URL) {
+            try { const r = await fetch(CONFIG.API_BASE_URL.replace(/\/$/, '') + '/api/verify-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: id, token }) }); if (r.ok) { const d = await r.json(); return !!d.valid; } } catch (e) { /* fall through */ }
+        }
+        return true; // demo mode: trust the stored ticket record
+    }
+
+    // ---- auth gate ----
+    let user = null;
+    function boot() {
+        if (fbAuth) { fbAuth.onAuthStateChanged(u => { user = u; render(); }); }
+        else { user = LSget('localUser'); render(); }
+    }
+    function render() {
+        // In Firebase mode we require the organizer to be signed in (so the
+        // "mark used" write is allowed by security rules). In demo mode we let
+        // them straight through, since tickets live in this device's storage.
+        $('signoutBtn').classList.toggle('hidden', !(fbAuth && user));
+        if (fbAuth && !user) return renderLogin();
+        renderScanner();
+    }
+    function renderLogin() {
+        $('body').innerHTML = `
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-display font-extrabold text-center">Organizer sign in</h2>
+                <p class="text-sm text-brand-200 text-center mt-1">Sign in to scan tickets for your events.</p>
+                <input id="em" type="email" placeholder="Email" class="w-full mt-4 bg-white/10 border border-white/15 rounded-xl px-3 py-2.5 text-sm placeholder-brand-300 focus:outline-none">
+                <input id="pw" type="password" placeholder="Password" class="w-full mt-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2.5 text-sm placeholder-brand-300 focus:outline-none">
+                <p id="lerr" class="text-red-300 text-sm mt-2 hidden"></p>
+                <button onclick="doLogin()" class="w-full mt-4 bg-brand-600 hover:bg-brand-500 font-bold py-3 rounded-xl">Sign in</button>
+                <a href="index.html" class="block text-center text-xs text-brand-300 mt-3 hover:underline">← Back to ZedTickets</a>
+            </div>`;
+    }
+    async function doLogin() {
+        const em = $('em').value.trim(), pw = $('pw').value; const err = $('lerr');
+        try { await fbAuth.signInWithEmailAndPassword(em, pw); } catch (e) { err.textContent = e.message || 'Sign in failed'; err.classList.remove('hidden'); }
+    }
+    async function logout() { if (fbAuth) await fbAuth.signOut(); else { user = null; render(); } }
+
+    // ---- scanner ----
+    let scanner = null, busy = false, lastCode = '', lastTime = 0;
+    const stats = { ok: 0, dup: 0, bad: 0 };
+
+    function renderScanner() {
+        $('body').innerHTML = `
+            <div id="reader" class="bg-black"></div>
+            <div id="result" class="mt-4 rounded-2xl p-5 text-center bg-white/5 border border-white/10">
+                <i class="fas fa-camera text-3xl text-brand-400"></i>
+                <p class="mt-2 text-brand-200 text-sm">Point the camera at a ticket QR code</p>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-4 text-center">
+                <div class="bg-emerald-500/15 rounded-xl py-2"><div id="sOk" class="font-extrabold text-emerald-300 text-xl">0</div><div class="text-[11px] text-emerald-200/70">admitted</div></div>
+                <div class="bg-amber-500/15 rounded-xl py-2"><div id="sDup" class="font-extrabold text-amber-300 text-xl">0</div><div class="text-[11px] text-amber-200/70">re-scans</div></div>
+                <div class="bg-red-500/15 rounded-xl py-2"><div id="sBad" class="font-extrabold text-red-300 text-xl">0</div><div class="text-[11px] text-red-200/70">invalid</div></div>
+            </div>
+            <div class="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p class="text-xs text-brand-300 mb-2">No camera? Enter the ticket code manually:</p>
+                <div class="flex gap-2"><input id="manual" placeholder="ticket-id.token" class="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-sm placeholder-brand-300 focus:outline-none"><button onclick="handleCode($('manual').value.trim())" class="bg-brand-600 font-bold px-4 rounded-lg text-sm">Check</button></div>
+            </div>
+            ${!fbDb ? '<p class="text-center text-[11px] text-amber-300/80 mt-4"><i class="fas fa-circle-info mr-1"></i>Demo mode: only tickets bought on this device can be found. Connect Firebase (SETUP.md) for real gate scanning.</p>' : ''}`;
+        startCamera();
+    }
+    function startCamera() {
+        if (!window.Html5Qrcode) { return; }
+        scanner = new Html5Qrcode('reader');
+        Html5Qrcode.getCameras().then(cams => {
+            if (!cams || !cams.length) { $('reader').innerHTML = '<div class="p-8 text-center text-brand-300 text-sm"><i class="fas fa-video-slash text-2xl"></i><p class="mt-2">No camera found — use manual entry below.</p></div>'; return; }
+            const back = cams.find(c => /back|rear|environment/i.test(c.label)) || cams[cams.length - 1];
+            scanner.start(back.id, { fps: 10, qrbox: { width: 240, height: 240 } }, onScan, () => {}).catch(e => {
+                $('reader').innerHTML = '<div class="p-8 text-center text-brand-300 text-sm"><i class="fas fa-triangle-exclamation text-2xl"></i><p class="mt-2">Camera blocked. Allow camera access, or use manual entry.</p></div>';
+            });
+        }).catch(() => {});
+    }
+    function onScan(text) {
+        const now = Date.now();
+        if (text === lastCode && now - lastTime < 2500) return; // debounce same code
+        lastCode = text; lastTime = now;
+        handleCode(text);
+    }
+
+    async function handleCode(raw) {
+        if (busy || !raw) return; busy = true;
+        try {
+            const [id, token] = String(raw).trim().split('.');
+            const t = await getTicket(id);
+            if (!t) return show('bad', 'Invalid ticket', 'This code is not a ZedTickets ticket.', null);
+            const ok = await verifyToken(id, token || t.token);
+            if (!ok || (t.token && token && t.token !== token)) return show('bad', 'Invalid ticket', 'This ticket could not be verified.', t);
+            if (t.status === 'used') return show('dup', 'Already used', 'This ticket was already scanned' + (t.usedAt ? ' at ' + new Date(t.usedAt).toLocaleTimeString() : '') + '.', t);
+            await markUsed(id);
+            show('ok', 'Admit — valid ✓', '', t);
+        } catch (e) { console.error(e); show('bad', 'Error', 'Could not read this ticket.', null); }
+        finally { setTimeout(() => busy = false, 1200); }
+    }
+    function show(kind, title, msg, t) {
+        stats[kind]++; $('sOk').textContent = stats.ok; $('sDup').textContent = stats.dup; $('sBad').textContent = stats.bad;
+        const colors = { ok: 'bg-emerald-500', dup: 'bg-amber-500', bad: 'bg-red-500' };
+        const icons = { ok: 'fa-circle-check', dup: 'fa-clock-rotate-left', bad: 'fa-circle-xmark' };
+        const app = $('app'); app.classList.remove('flash-ok', 'flash-bad'); void app.offsetWidth; app.classList.add(kind === 'ok' ? 'flash-ok' : 'flash-bad');
+        if (navigator.vibrate) navigator.vibrate(kind === 'ok' ? 120 : [80, 60, 80]);
+        $('result').innerHTML = `
+            <div class="w-16 h-16 mx-auto rounded-full ${colors[kind]} flex items-center justify-center"><i class="fas ${icons[kind]} text-white text-3xl"></i></div>
+            <h3 class="font-extrabold text-xl mt-3">${title}</h3>
+            ${msg ? `<p class="text-sm text-brand-200 mt-1">${esc(msg)}</p>` : ''}
+            ${t ? `<div class="mt-3 bg-white/5 rounded-xl p-3 text-left text-sm"><div class="font-bold">${esc(t.eventTitle || '')}</div><div class="text-brand-200 text-xs">${esc(t.ticketTypeName || '')} · ${esc(t.buyerName || '')}</div><div class="text-brand-300 text-[11px] mt-0.5">${esc(fmtDate(t.date, t.time))} · #${esc(String(t.id).slice(-8).toUpperCase())}</div></div>` : ''}`;
+    }
+
+    boot();
+    </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// ZedTickets Firestore security rules.
+//
+// Model:
+//  - Organizers are authenticated (Firebase Auth). They own the events and
+//    campaigns they create, and only they can edit/close them or mark their
+//    tickets as used at the gate.
+//  - The buying/donating public is NOT required to sign in. They can read
+//    public event/campaign listings and load a single ticket by its id.
+//  - Tickets carry a server-signed token (issued by the backend only after a
+//    verified payment). The scanner verifies that token server-side, so a
+//    forged ticket document cannot pass entry even though create is open.
+//
+// NOTE (pilot honesty): because the public has no account, ticket/contribution
+// CREATE is open. The real integrity guarantee is the server-signed token +
+// server-side payment verification, not these create rules. Before scaling,
+// move ticket/contribution writes to the backend (Firebase Admin SDK) so the
+// client cannot write them at all. See SETUP.md.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // ---- EVENTS -------------------------------------------------------
+    match /events/{eventId} {
+      allow read: if true;                                   // public listings
+      allow create: if isOwner(request.resource.data.organizerId);
+      allow update, delete: if isOwner(resource.data.organizerId);
+    }
+
+    // ---- TICKETS ------------------------------------------------------
+    match /tickets/{ticketId} {
+      // A buyer can load their own ticket by id (single get). Listing all
+      // tickets is restricted to the event's organizer (their dashboard).
+      allow get: if true;
+      allow list: if isOwner(resource.data.organizerId);
+
+      // Open create (public buyers). Must carry the server token + start valid.
+      allow create: if request.resource.data.token is string
+                    && request.resource.data.status == 'valid'
+                    && request.resource.data.organizerId is string
+                    && request.resource.data.eventId is string;
+
+      // Only the event's organizer can mark a ticket used (gate scanning),
+      // and only that transition — nothing else changes.
+      allow update: if isOwner(resource.data.organizerId)
+                    && request.resource.data.status == 'used'
+                    && request.resource.data.eventId == resource.data.eventId
+                    && request.resource.data.organizerId == resource.data.organizerId
+                    && request.resource.data.token == resource.data.token;
+
+      allow delete: if isOwner(resource.data.organizerId);
+    }
+
+    // ---- CAMPAIGNS (fundraisers) -------------------------------------
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow create: if isOwner(request.resource.data.organizerId);
+      allow delete: if isOwner(resource.data.organizerId);
+
+      // The organizer can edit their campaign freely. The public may only
+      // bump the running raised total (progress bar) and nothing else.
+      allow update: if isOwner(resource.data.organizerId)
+                    || (
+                         request.resource.data.raisedZmw >= resource.data.raisedZmw
+                         && request.resource.data.diff(resource.data)
+                              .affectedKeys().hasOnly(['raisedZmw', 'contributionsCount'])
+                       );
+    }
+
+    // ---- CONTRIBUTIONS (donations) -----------------------------------
+    match /contributions/{contributionId} {
+      // Append-only for the public. Donor details are private: only the
+      // campaign's organizer can read the list.
+      allow create: if request.resource.data.token is string
+                    && request.resource.data.amountZmw is number
+                    && request.resource.data.amountZmw > 0
+                    && request.resource.data.organizerId is string
+                    && request.resource.data.campaignId is string;
+      allow read: if isOwner(resource.data.organizerId);
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ZedTickets — Event Tickets & Fundraising, Pay with Mobile Money 🇿🇲</title>
+    <meta name="description" content="ZedTickets — buy tickets for concerts, church events, weddings and sports across Zambia, or raise funds for a cause. Pay with MTN MoMo, Airtel Money or Zamtel Kwacha. Digital tickets with a QR at the gate.">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ZedTickets">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' },
+                        mag: { DEFAULT: '#d6249f', soft: '#f472b6', deep: '#a21caf' },
+                        accent: { DEFAULT: '#f97316', soft: '#fb923c' },
+                        zam: { green: '#198a00', red: '#de2010', black: '#000000', orange: '#ef7d00' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['"Playfair Display"', 'serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .spinner { border: 3px solid #e0e7ff; border-top-color: #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .pulse-ring { animation: pulseRing 1.5s ease-out infinite; }
+        @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(25,138,0,0.4); } 100% { box-shadow: 0 0 0 16px rgba(25,138,0,0); } }
+        html { scroll-behavior: smooth; }
+        .cat-chip { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; border-radius: 9999px; padding: 7px 15px; font-size: 12px; font-weight: 700; color: #3730a3; transition: all .2s; cursor: pointer; }
+        .cat-chip:hover, .cat-chip.active { background: #4f46e5; color: #fff; }
+        .provider-btn.selected { border-color: #4f46e5 !important; background: #eef2ff; }
+        .tab-btn.active { color: #4f46e5; border-color: #4f46e5; }
+        .ticket-notch { position: relative; }
+        .ticket-notch::before, .ticket-notch::after { content: ''; position: absolute; top: 50%; width: 24px; height: 24px; background: #0d0716; border-radius: 50%; transform: translateY(-50%); }
+        .ticket-notch::before { left: -12px; } .ticket-notch::after { right: -12px; }
+    </style>
+</head>
+<body class="bg-brand-50 font-sans text-slate-800 min-h-screen flex flex-col">
+
+    <!-- ═══ ORIZIS INTRO · standalone module ═══ -->
+    <div id="orizis-intro">
+      <style>
+        #orizis-intro { position: fixed; inset: 0; z-index: 999999; background: #0d0716; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.45s ease; }
+        #orizis-intro.oi-out { opacity: 0; pointer-events: none; }
+        #orizis-intro .oi-mark { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; font-size: clamp(38px, 9vw, 72px); letter-spacing: 0.22em; margin-right: -0.22em; background: linear-gradient(100deg, #312e81 0%, #c7d2fe 28%, #d6249f 50%, #c7d2fe 72%, #312e81 100%); background-size: 240% auto; -webkit-background-clip: text; background-clip: text; color: transparent; opacity: 0; animation: oiShine 1.9s ease forwards, oiRise 0.9s cubic-bezier(0.22,1,0.36,1) forwards; }
+        #orizis-intro .oi-sub { font-family: 'Inter', Arial, sans-serif; font-weight: 700; font-size: clamp(10px, 2.2vw, 14px); letter-spacing: 0.55em; margin-right: -0.55em; color: #818cf8; margin-top: 14px; opacity: 0; animation: oiFade 0.7s ease 0.55s forwards; }
+        #orizis-intro .oi-line { width: 0; height: 1px; background: linear-gradient(90deg, transparent, #d6249f, transparent); margin-top: 22px; animation: oiLine 1.1s ease 0.35s forwards; }
+        #orizis-intro .oi-load { display: flex; align-items: center; gap: 8px; margin-top: 26px; color: #818cf8; font-family: 'Inter', Arial, sans-serif; font-weight: 600; font-size: 11px; letter-spacing: 0.2em; opacity: 0; animation: oiFade 0.7s ease 0.9s forwards; }
+        #orizis-intro .oi-spin { width: 14px; height: 14px; border: 2px solid rgba(214,36,159,0.25); border-top-color: #d6249f; border-radius: 50%; animation: oiSpin 0.9s linear infinite; }
+        @keyframes oiSpin { to { transform: rotate(360deg); } }
+        @keyframes oiShine { from { background-position: 200% center; } to { background-position: -40% center; } }
+        @keyframes oiRise { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+        @keyframes oiFade { to { opacity: 1; } }
+        @keyframes oiLine { to { width: min(320px, 60vw); } }
+      </style>
+      <div class="oi-mark">ORIZIS</div>
+      <div class="oi-line"></div>
+      <div class="oi-sub">TECHNOLOGY</div>
+      <div class="oi-load"><div class="oi-spin"></div>LOADING</div>
+      <script>
+        (function () {
+          var el = document.getElementById('orizis-intro');
+          var done = false;
+          function out() { if (done) return; done = true; el.classList.add('oi-out'); setTimeout(function () { el.remove(); }, 500); }
+          el.addEventListener('click', out);
+          el.addEventListener('touchstart', out, { passive: true });
+          setTimeout(out, 1300);
+        })();
+      </script>
+    </div>
+    <!-- ═══ /ORIZIS INTRO ═══ -->
+
+    <!-- ======================= TOP BAR ======================= -->
+    <div class="bg-brand-900 text-white text-xs sm:text-sm py-1.5 px-4 text-center">
+        <i class="fas fa-ticket mr-1 text-mag-soft"></i> Real tickets, real causes &nbsp;•&nbsp; Pay with <b>MTN MoMo</b>, <b>Airtel Money</b> &amp; <b>Zamtel Kwacha</b>
+    </div>
+
+    <!-- ======================= HEADER ======================= -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3 sm:gap-6">
+            <a href="#" onclick="goHome(); return false;" class="flex items-center gap-2 shrink-0">
+                <div class="bg-gradient-to-br from-brand-600 to-mag text-white w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-md">
+                    <i class="fas fa-ticket"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-display font-extrabold tracking-tight leading-none">Zed<span class="text-brand-600">Tickets</span></h1>
+                    <p class="text-[10px] text-slate-400 leading-none mt-0.5">Tickets &amp; Fundraising · Zambia</p>
+                </div>
+            </a>
+
+            <div class="flex-1 relative hidden sm:block">
+                <input id="searchInput" type="text" placeholder="Search events and fundraisers..."
+                    class="w-full border-2 border-brand-500 rounded-full py-2.5 pl-5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100"
+                    oninput="renderHome()">
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-brand-500"><i class="fas fa-search"></i></span>
+            </div>
+
+            <button onclick="showOrganizer()" class="shrink-0 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-full transition">
+                <i class="fas fa-plus mr-1"></i><span class="hidden sm:inline">Sell / Fundraise</span><span class="sm:hidden">Organize</span>
+            </button>
+        </div>
+
+        <nav class="max-w-7xl mx-auto px-4 pb-2.5 flex gap-2 items-center overflow-x-auto no-scrollbar">
+            <button data-cat="all" onclick="filterCat('all', this)" class="cat-chip active"><i class="fas fa-fire"></i> All</button>
+            <button data-cat="music" onclick="filterCat('music', this)" class="cat-chip"><i class="fas fa-music"></i> Concerts</button>
+            <button data-cat="church" onclick="filterCat('church', this)" class="cat-chip"><i class="fas fa-church"></i> Church</button>
+            <button data-cat="wedding" onclick="filterCat('wedding', this)" class="cat-chip"><i class="fas fa-ring"></i> Weddings</button>
+            <button data-cat="sports" onclick="filterCat('sports', this)" class="cat-chip"><i class="fas fa-futbol"></i> Sports</button>
+            <button data-cat="conference" onclick="filterCat('conference', this)" class="cat-chip"><i class="fas fa-microphone"></i> Conferences</button>
+            <button data-cat="fundraiser" onclick="filterCat('fundraiser', this)" class="cat-chip"><i class="fas fa-hand-holding-heart"></i> Fundraisers</button>
+        </nav>
+    </header>
+
+    <main class="flex-1 w-full">
+
+    <!-- ======================= VIEW: HOME ======================= -->
+    <div id="view-home">
+        <!-- HERO -->
+        <section class="relative overflow-hidden bg-brand-900 text-white">
+            <div class="absolute inset-0 bg-gradient-to-br from-brand-700 via-brand-900 to-[#1a0f2e]"></div>
+            <div class="absolute -top-24 -right-24 w-96 h-96 bg-mag/30 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-32 -left-20 w-96 h-96 bg-accent/20 rounded-full blur-3xl"></div>
+            <div class="relative max-w-7xl mx-auto px-4 py-12 sm:py-16 grid sm:grid-cols-2 gap-8 items-center">
+                <div>
+                    <span class="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur text-brand-100 text-xs font-bold px-3 py-1.5 rounded-full border border-white/10"><i class="fas fa-bolt text-mag-soft"></i> Tickets &amp; fundraising for Zambia</span>
+                    <h2 class="mt-4 text-3xl sm:text-5xl font-display font-extrabold leading-tight">Your event.<br>Your cause.<br><span class="bg-gradient-to-r from-mag-soft to-accent-soft bg-clip-text text-transparent">One tap to pay.</span> 🇿🇲</h2>
+                    <p class="mt-3 text-brand-100/90 text-sm sm:text-base max-w-md">Sell tickets to concerts, church events, weddings and games — or raise funds for a cause. Supporters pay in Kwacha with the mobile money they already use. Every ticket is a QR code, scanned at the gate.</p>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button onclick="scrollToEvents()" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-6 py-3 rounded-full transition shadow-lg shadow-brand-900/40"><i class="fas fa-ticket mr-1"></i> Browse events</button>
+                        <button onclick="showOrganizer()" class="bg-white/10 backdrop-blur border border-white/20 hover:bg-white/20 text-white font-bold px-6 py-3 rounded-full transition"><i class="fas fa-hand-holding-heart mr-1"></i> Start a fundraiser</button>
+                    </div>
+                    <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold">
+                        <span class="bg-white/10 backdrop-blur px-4 py-2 rounded-full border border-white/10"><i class="fas fa-mobile-screen mr-1 text-yellow-300"></i> MTN MoMo</span>
+                        <span class="bg-white/10 backdrop-blur px-4 py-2 rounded-full border border-white/10"><i class="fas fa-mobile-screen mr-1 text-red-400"></i> Airtel Money</span>
+                        <span class="bg-white/10 backdrop-blur px-4 py-2 rounded-full border border-white/10"><i class="fas fa-mobile-screen mr-1 text-green-400"></i> Zamtel Kwacha</span>
+                    </div>
+                </div>
+                <div class="hidden sm:grid grid-cols-2 gap-3 text-center text-sm">
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur"><div class="text-3xl text-mag-soft"><i class="fas fa-qrcode"></i></div><p class="mt-2 font-semibold text-brand-50">QR at the gate</p></div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur"><div class="text-3xl text-green-400"><i class="fas fa-mobile-screen-button"></i></div><p class="mt-2 font-semibold text-brand-50">Mobile Money</p></div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur"><div class="text-3xl text-accent-soft"><i class="fas fa-hand-holding-heart"></i></div><p class="mt-2 font-semibold text-brand-50">Raise funds</p></div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur"><div class="text-3xl text-brand-200"><i class="fas fa-chart-line"></i></div><p class="mt-2 font-semibold text-brand-50">Live sales</p></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="max-w-7xl mx-auto px-4 py-8 w-full">
+            <!-- EVENTS -->
+            <div id="eventsAnchor" class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold"><i class="fas fa-ticket text-brand-600 mr-1"></i> Upcoming events</h3>
+                <span id="eventsCount" class="text-sm text-slate-400"></span>
+            </div>
+            <div id="eventsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <p id="eventsEmpty" class="hidden text-center text-slate-400 py-12">No events in this category yet. Check back soon!</p>
+
+            <!-- FUNDRAISERS -->
+            <div id="campaignsAnchor" class="flex items-center justify-between mb-4 mt-12">
+                <h3 class="text-xl font-bold"><i class="fas fa-hand-holding-heart text-mag mr-1"></i> Active fundraisers</h3>
+            </div>
+            <div id="campaignsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <p id="campaignsEmpty" class="hidden text-center text-slate-400 py-12">No fundraisers running right now.</p>
+        </div>
+
+        <!-- HOW IT WORKS -->
+        <section class="bg-white border-t border-brand-100">
+            <div class="max-w-7xl mx-auto px-4 py-14">
+                <h3 class="text-2xl sm:text-3xl font-display font-extrabold text-center">How ZedTickets Works</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-10">
+                    <div class="text-center p-5 rounded-2xl bg-brand-50"><div class="text-4xl text-brand-500"><i class="fas fa-calendar-plus"></i></div><div class="mt-3 text-xs font-bold text-brand-600">STEP 1</div><h4 class="font-bold mt-1">Create</h4><p class="text-sm text-slate-500 mt-1">An organizer lists an event or opens a fundraiser in minutes.</p></div>
+                    <div class="text-center p-5 rounded-2xl bg-brand-50"><div class="text-4xl text-brand-500"><i class="fas fa-mobile-screen"></i></div><div class="mt-3 text-xs font-bold text-brand-600">STEP 2</div><h4 class="font-bold mt-1">Pay with MoMo</h4><p class="text-sm text-slate-500 mt-1">Buyers and donors pay in Kwacha — no card, no account needed.</p></div>
+                    <div class="text-center p-5 rounded-2xl bg-brand-50"><div class="text-4xl text-brand-500"><i class="fas fa-qrcode"></i></div><div class="mt-3 text-xs font-bold text-brand-600">STEP 3</div><h4 class="font-bold mt-1">Get your QR</h4><p class="text-sm text-slate-500 mt-1">A digital ticket with a unique QR lands on the phone instantly.</p></div>
+                    <div class="text-center p-5 rounded-2xl bg-brand-50"><div class="text-4xl text-brand-500"><i class="fas fa-qrcode"></i></div><div class="mt-3 text-xs font-bold text-brand-600">STEP 4</div><h4 class="font-bold mt-1">Scan at the gate</h4><p class="text-sm text-slate-500 mt-1">The organizer scans each QR once — no double entry, no fakes.</p></div>
+                </div>
+                <div class="mt-10 max-w-2xl mx-auto bg-brand-50 border border-brand-100 rounded-2xl p-5 text-sm text-slate-600">
+                    <p class="font-bold text-brand-700"><i class="fas fa-shield-halved mr-1"></i> Transparent by design</p>
+                    <p class="mt-1">Every payment is recorded with a receipt. For fundraisers, each donation is logged and receipted so causes and their supporters can see exactly what was raised. ZedTickets charges a small platform fee per transaction — always shown up front.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SUPPORT -->
+        <section id="support" class="bg-brand-900 text-white">
+            <div class="max-w-7xl mx-auto px-4 py-10 text-center">
+                <h3 class="text-2xl font-display font-extrabold">Questions? <i class="fas fa-comments text-mag-soft ml-1"></i></h3>
+                <p class="mt-2 text-brand-100/90">Organizing an event or running a fundraiser? Our team helps you get set up.</p>
+                <a id="waSupportBtn" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-5 bg-[#25D366] text-white font-extrabold px-8 py-3.5 rounded-full hover:brightness-110 transition">
+                    <i class="fab fa-whatsapp text-2xl"></i> Chat on WhatsApp
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <!-- ======================= VIEW: EVENT DETAIL ======================= -->
+    <div id="view-event" class="hidden max-w-4xl mx-auto px-4 py-6 w-full"></div>
+
+    <!-- ======================= VIEW: CAMPAIGN DETAIL ======================= -->
+    <div id="view-campaign" class="hidden max-w-3xl mx-auto px-4 py-6 w-full"></div>
+
+    <!-- ======================= VIEW: TICKET ======================= -->
+    <div id="view-ticket" class="hidden max-w-md mx-auto px-4 py-8 w-full"></div>
+
+    <!-- ======================= VIEW: ORGANIZER ======================= -->
+    <div id="view-organizer" class="hidden max-w-5xl mx-auto px-4 py-6 w-full"></div>
+
+    </main>
+
+    <!-- ======================= FOOTER ======================= -->
+    <footer class="bg-[#0d0716] text-brand-100/70 mt-10">
+        <div class="max-w-7xl mx-auto px-4 py-10 grid sm:grid-cols-3 gap-8 text-sm">
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="bg-gradient-to-br from-brand-600 to-mag text-white w-8 h-8 rounded-lg flex items-center justify-center"><i class="fas fa-ticket"></i></div>
+                    <span class="font-display font-extrabold text-white text-lg">Zed<span class="text-brand-400">Tickets</span></span>
+                </div>
+                <p class="text-brand-100/60">Zambia's home for event tickets and fundraising. Sell out your show or rally your community — paid in the mobile money everyone already uses.</p>
+            </div>
+            <div>
+                <h4 class="font-bold text-white mb-3">Explore</h4>
+                <ul class="space-y-2 text-brand-100/60">
+                    <li><a href="#" onclick="goHome();return false;" class="hover:text-white transition">Events</a></li>
+                    <li><a href="#" onclick="goHome();scrollToCampaigns();return false;" class="hover:text-white transition">Fundraisers</a></li>
+                    <li><a href="#" onclick="showOrganizer();return false;" class="hover:text-white transition">For organizers</a></li>
+                    <li><a href="scan.html" class="hover:text-white transition">Gate scanner</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white mb-3">We accept</h4>
+                <div class="flex flex-wrap gap-2">
+                    <span class="bg-yellow-400 text-black font-bold px-3 py-1.5 rounded-lg text-xs">MTN MoMo</span>
+                    <span class="bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs">Airtel Money</span>
+                    <span class="bg-green-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs">Zamtel Kwacha</span>
+                </div>
+                <p class="mt-4 text-brand-100/50 text-xs">Prices in Zambian Kwacha (ZMW). A small platform fee applies per transaction, shown at checkout.</p>
+            </div>
+        </div>
+        <div class="border-t border-white/10 text-center py-4 text-xs text-brand-100/50">© 2026 ZedTickets Zambia · an ORIZIS TECHNOLOGY brand. All rights reserved.</div>
+    </footer>
+
+    <!-- ======================= CHECKOUT MODAL ======================= -->
+    <div id="checkoutModal" class="fixed inset-0 bg-black/60 z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden fade-in max-h-[92vh] overflow-y-auto">
+            <div id="payStep1">
+                <div class="bg-zam-green text-white p-5">
+                    <h3 class="font-bold text-lg"><i class="fas fa-mobile-screen mr-2"></i>Mobile Money Checkout</h3>
+                    <p id="paySummary" class="text-emerald-100 text-sm mt-1"></p>
+                    <p class="text-emerald-100 text-sm mt-1">Total to pay: <b id="payTotal" class="text-white">K0.00</b></p>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div id="donationAmountWrap" class="hidden">
+                        <label class="text-sm font-semibold text-slate-600 block mb-2">Amount to give (ZMW)</label>
+                        <div class="flex">
+                            <span class="bg-slate-100 border border-r-0 border-slate-300 rounded-l-xl px-3 flex items-center text-sm font-semibold text-slate-500">K</span>
+                            <input id="donationAmount" type="number" min="5" placeholder="e.g. 100" class="flex-1 border border-slate-300 rounded-r-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-zam-green" oninput="recalcCheckout()">
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" onclick="setDonation(50)" class="flex-1 bg-brand-50 text-brand-700 font-bold text-sm py-2 rounded-lg hover:bg-brand-100">K50</button>
+                            <button type="button" onclick="setDonation(100)" class="flex-1 bg-brand-50 text-brand-700 font-bold text-sm py-2 rounded-lg hover:bg-brand-100">K100</button>
+                            <button type="button" onclick="setDonation(250)" class="flex-1 bg-brand-50 text-brand-700 font-bold text-sm py-2 rounded-lg hover:bg-brand-100">K250</button>
+                            <button type="button" onclick="setDonation(500)" class="flex-1 bg-brand-50 text-brand-700 font-bold text-sm py-2 rounded-lg hover:bg-brand-100">K500</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold text-slate-600 block mb-2">Choose your network</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="selectProvider('mtn', this)" class="provider-btn border-2 rounded-xl p-3 text-center transition hover:border-brand-500"><div class="bg-yellow-400 text-black font-extrabold text-xs rounded-md py-1 mb-1">MTN</div><span class="text-[11px] text-slate-500">MoMo</span></button>
+                            <button onclick="selectProvider('airtel', this)" class="provider-btn border-2 rounded-xl p-3 text-center transition hover:border-brand-500"><div class="bg-red-600 text-white font-extrabold text-xs rounded-md py-1 mb-1">Airtel</div><span class="text-[11px] text-slate-500">Money</span></button>
+                            <button onclick="selectProvider('zamtel', this)" class="provider-btn border-2 rounded-xl p-3 text-center transition hover:border-brand-500"><div class="bg-green-700 text-white font-extrabold text-xs rounded-md py-1 mb-1">Zamtel</div><span class="text-[11px] text-slate-500">Kwacha</span></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold text-slate-600 block mb-2">Mobile money number</label>
+                        <div class="flex">
+                            <span class="bg-slate-100 border border-r-0 border-slate-300 rounded-l-xl px-3 flex items-center text-sm font-semibold text-slate-500">🇿🇲 +260</span>
+                            <input id="payPhone" type="tel" maxlength="9" placeholder="97 1234567" class="flex-1 border border-slate-300 rounded-r-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-zam-green" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                        </div>
+                    </div>
+                    <div>
+                        <label id="nameLabel" class="text-sm font-semibold text-slate-600 block mb-2">Your full name</label>
+                        <input id="payName" type="text" placeholder="e.g. Chanda Mwansa" class="w-full border border-slate-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-zam-green">
+                    </div>
+                    <div id="emailWrap">
+                        <label class="text-sm font-semibold text-slate-600 block mb-2">Email <span class="text-slate-400 font-normal">(for your ticket/receipt — optional)</span></label>
+                        <input id="payEmail" type="email" placeholder="you@email.com" class="w-full border border-slate-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-zam-green">
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-500 space-y-1">
+                        <div class="flex justify-between"><span id="feeLabelBase">Ticket price</span><span id="feeBase">K0.00</span></div>
+                        <div class="flex justify-between"><span>Platform fee (<span id="feePct">7</span>%)</span><span id="feeAmt">K0.00</span></div>
+                        <div class="flex justify-between font-bold text-slate-700 text-sm pt-1 border-t"><span>Total</span><span id="feeTotal">K0.00</span></div>
+                    </div>
+                    <p id="payError" class="text-zam-red text-sm font-semibold hidden"></p>
+                    <button onclick="submitPayment()" class="w-full bg-zam-green hover:bg-green-800 text-white font-bold py-3.5 rounded-xl transition">Send payment request <i class="fas fa-arrow-right ml-1"></i></button>
+                    <button onclick="closeCheckout()" class="w-full text-slate-400 text-sm py-1 hover:text-slate-600">Cancel</button>
+                </div>
+            </div>
+
+            <div id="payStep2" class="hidden p-8 text-center">
+                <div class="w-20 h-20 mx-auto rounded-full bg-zam-green/10 flex items-center justify-center pulse-ring"><i class="fas fa-mobile-screen-button text-zam-green text-3xl"></i></div>
+                <h3 class="font-bold text-lg mt-5">Check your phone 📲</h3>
+                <p class="text-slate-500 text-sm mt-2">We sent a request of <b id="pay2Total" class="text-zam-green">K0.00</b> to <b id="pay2Phone"></b>.<br>Enter your Mobile Money PIN to approve.</p>
+                <p class="text-xs text-slate-400 mt-4"><span class="spinner inline-block !w-4 !h-4 !border-2 align-middle mr-1"></span> Waiting for confirmation...</p>
+            </div>
+
+            <div id="payStep3" class="hidden p-8 text-center">
+                <div class="w-20 h-20 mx-auto rounded-full bg-zam-green flex items-center justify-center"><i class="fas fa-check text-white text-3xl"></i></div>
+                <h3 class="font-bold text-xl mt-5 text-zam-green">Payment received! 🎉</h3>
+                <p id="successMsg" class="text-slate-500 text-sm mt-2"></p>
+                <button id="successBtn" onclick="finishCheckout()" class="mt-6 w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition">View my ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= TOAST ======================= -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-900 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-xl z-[70] hidden"></div>
+
+    <!-- Firebase (loaded from CDN; only initialised when CONFIG.firebaseConfig is filled in) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <script>
+    /* ================================================================
+       ZEDTICKETS CONFIG — edit these values
+       ================================================================ */
+    const CONFIG = {
+        // Your backend API (Vercel server.js: pawaPay + signed tickets).
+        // Leave "" to run fully in demo mode with a simulated payment.
+        API_BASE_URL: "",
+
+        PLATFORM_FEE_PERCENT: 7,          // ZedTickets revenue: fee per transaction (5–10%)
+        CURRENCY: "K",
+        WHATSAPP_SUPPORT: "260971234567", // support / organizer help (use a BUSINESS number)
+
+        // Firebase — leave apiKey "" to run in local demo mode (localStorage).
+        // Fill from Firebase console → Project settings → Web app. See SETUP.md.
+        firebaseConfig: {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        }
+    };
+
+    /* ================================================================
+       DEMO SEED DATA (used in local mode / empty database)
+       ================================================================ */
+    const DEMO_EVENTS = [
+        { id: 'demo-e1', organizerId: 'demo', organizerName: 'Lusaka Live', category: 'music', title: 'Afrobeats Night — Lusaka', venue: 'Mulungushi Conference Centre, Lusaka', date: '2026-08-15', time: '19:00', image: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&q=80', description: 'A night of the hottest Afrobeats and Zed hip-hop, live on one stage. Doors 7pm.', ticketTypes: [ { name: 'General', priceZmw: 150, quantity: 500, sold: 0 }, { name: 'VIP', priceZmw: 400, quantity: 100, sold: 0 } ] },
+        { id: 'demo-e2', organizerId: 'demo', organizerName: 'Grace Chapel', category: 'church', title: 'Annual Praise & Worship Concert', venue: 'Grace Chapel, Kitwe', date: '2026-09-05', time: '16:00', image: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&q=80', description: 'An afternoon of worship with choirs from across the Copperbelt. All welcome.', ticketTypes: [ { name: 'Entry', priceZmw: 50, quantity: 800, sold: 0 } ] },
+        { id: 'demo-e3', organizerId: 'demo', organizerName: 'ZedSports', category: 'sports', title: 'Zanaco FC vs Nkana FC', venue: 'Levy Mwanawasa Stadium, Ndola', date: '2026-08-30', time: '15:00', image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&q=80', description: 'The Super League derby everyone is waiting for. Get your seat early.', ticketTypes: [ { name: 'Terraces', priceZmw: 60, quantity: 2000, sold: 0 }, { name: 'Covered Stand', priceZmw: 150, quantity: 500, sold: 0 } ] }
+    ];
+    const DEMO_CAMPAIGNS = [
+        { id: 'demo-c1', organizerId: 'demo', organizerName: 'Grace Chapel', category: 'fundraiser', title: 'New Church Roof Appeal', image: 'https://images.unsplash.com/photo-1548625149-720134655e94?w=800&q=80', description: 'Help us re-roof the main hall before the rainy season. Every Kwacha is receipted and reported back to the congregation.', goalZmw: 50000, raisedZmw: 18500, contributionsCount: 74 },
+        { id: 'demo-c2', organizerId: 'demo', organizerName: 'Bauleni Youth', category: 'fundraiser', title: 'School Shoes for 200 Kids', image: 'https://images.unsplash.com/photo-1497486751825-1233686d5d80?w=800&q=80', description: 'A pair of school shoes for every child in the Bauleni after-school programme this term.', goalZmw: 30000, raisedZmw: 9200, contributionsCount: 41 }
+    ];
+
+    const CAT_META = {
+        music: { icon: 'fa-music', label: 'Concert', color: 'bg-mag' },
+        church: { icon: 'fa-church', label: 'Church', color: 'bg-brand-600' },
+        wedding: { icon: 'fa-ring', label: 'Wedding', color: 'bg-mag-deep' },
+        sports: { icon: 'fa-futbol', label: 'Sports', color: 'bg-green-600' },
+        conference: { icon: 'fa-microphone', label: 'Conference', color: 'bg-accent' },
+        fundraiser: { icon: 'fa-hand-holding-heart', label: 'Fundraiser', color: 'bg-mag' }
+    };
+
+    /* ================================================================
+       HELPERS
+       ================================================================ */
+    const $ = id => document.getElementById(id);
+    const fmtK = n => CONFIG.CURRENCY + Number(n || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const platformFee = amt => Math.round(amt * CONFIG.PLATFORM_FEE_PERCENT) / 100;
+    const fmtDate = (d, t) => { try { const dt = new Date(d + 'T' + (t || '00:00')); return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + (t ? ' · ' + t : ''); } catch (e) { return d + (t ? ' · ' + t : ''); } };
+    let toastTimer;
+    function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 2600); }
+    function newId() { return 'zt-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+    document.querySelectorAll('#waSupportBtn').forEach(a => a.href = 'https://wa.me/' + CONFIG.WHATSAPP_SUPPORT + '?text=' + encodeURIComponent('Hi ZedTickets, I would like help organizing an event / fundraiser.'));
+    $('feePct') && ($('feePct').textContent = CONFIG.PLATFORM_FEE_PERCENT);
+
+    /* ================================================================
+       DATA LAYER — Firestore when configured, else localStorage demo.
+       ================================================================ */
+    let fb = null, fbAuth = null, fbDb = null;
+    const usingFirebase = !!(CONFIG.firebaseConfig && CONFIG.firebaseConfig.apiKey);
+
+    if (usingFirebase) {
+        try {
+            fb = firebase.initializeApp(CONFIG.firebaseConfig);
+            fbAuth = firebase.auth();
+            fbDb = firebase.firestore();
+        } catch (e) { console.error('Firebase init failed, falling back to demo mode', e); }
+    }
+
+    const LS = {
+        get(k, d) { try { return JSON.parse(localStorage.getItem('zt_' + k)) ?? d; } catch (e) { return d; } },
+        set(k, v) { localStorage.setItem('zt_' + k, JSON.stringify(v)); }
+    };
+    // Seed local store on first run
+    if (!LS.get('seeded')) {
+        LS.set('events', DEMO_EVENTS);
+        LS.set('campaigns', DEMO_CAMPAIGNS);
+        LS.set('tickets', []);
+        LS.set('contributions', []);
+        LS.set('seeded', true);
+    }
+
+    const DB = {
+        mode: (fbDb ? 'firebase' : 'local'),
+
+        async listEvents() {
+            if (fbDb) { const s = await fbDb.collection('events').get(); const a = s.docs.map(d => ({ id: d.id, ...d.data() })); return a.length ? a : DEMO_EVENTS; }
+            return LS.get('events', []);
+        },
+        async getEvent(id) {
+            if (fbDb) { const d = await fbDb.collection('events').doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : DEMO_EVENTS.find(e => e.id === id); }
+            return LS.get('events', []).find(e => e.id === id);
+        },
+        async saveEvent(ev) {
+            if (fbDb) { if (ev.id) { await fbDb.collection('events').doc(ev.id).set(ev, { merge: true }); return ev.id; } const r = await fbDb.collection('events').add(ev); return r.id; }
+            const list = LS.get('events', []); if (!ev.id) ev.id = newId(); const i = list.findIndex(e => e.id === ev.id); if (i >= 0) list[i] = ev; else list.unshift(ev); LS.set('events', list); return ev.id;
+        },
+        async deleteEvent(id) {
+            if (fbDb) { await fbDb.collection('events').doc(id).delete(); return; }
+            LS.set('events', LS.get('events', []).filter(e => e.id !== id));
+        },
+
+        async listCampaigns() {
+            if (fbDb) { const s = await fbDb.collection('campaigns').get(); const a = s.docs.map(d => ({ id: d.id, ...d.data() })); return a.length ? a : DEMO_CAMPAIGNS; }
+            return LS.get('campaigns', []);
+        },
+        async getCampaign(id) {
+            if (fbDb) { const d = await fbDb.collection('campaigns').doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : DEMO_CAMPAIGNS.find(c => c.id === id); }
+            return LS.get('campaigns', []).find(c => c.id === id);
+        },
+        async saveCampaign(c) {
+            if (fbDb) { if (c.id) { await fbDb.collection('campaigns').doc(c.id).set(c, { merge: true }); return c.id; } const r = await fbDb.collection('campaigns').add(c); return r.id; }
+            const list = LS.get('campaigns', []); if (!c.id) c.id = newId(); const i = list.findIndex(x => x.id === c.id); if (i >= 0) list[i] = c; else list.unshift(c); LS.set('campaigns', list); return c.id;
+        },
+        async deleteCampaign(id) {
+            if (fbDb) { await fbDb.collection('campaigns').doc(id).delete(); return; }
+            LS.set('campaigns', LS.get('campaigns', []).filter(c => c.id !== id));
+        },
+        async addRaised(campaignId, amount) {
+            if (fbDb) { await fbDb.collection('campaigns').doc(campaignId).update({ raisedZmw: firebase.firestore.FieldValue.increment(amount), contributionsCount: firebase.firestore.FieldValue.increment(1) }); return; }
+            const list = LS.get('campaigns', []); const c = list.find(x => x.id === campaignId); if (c) { c.raisedZmw = (c.raisedZmw || 0) + amount; c.contributionsCount = (c.contributionsCount || 0) + 1; LS.set('campaigns', list); }
+        },
+
+        async createTicket(t) {
+            if (fbDb) { await fbDb.collection('tickets').doc(t.id).set(t); return; }
+            const list = LS.get('tickets', []); list.unshift(t); LS.set('tickets', list);
+        },
+        async getTicket(id) {
+            if (fbDb) { const d = await fbDb.collection('tickets').doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : null; }
+            return LS.get('tickets', []).find(t => t.id === id);
+        },
+        async listTicketsByOrganizer(uid) {
+            if (fbDb) { const s = await fbDb.collection('tickets').where('organizerId', '==', uid).get(); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
+            return LS.get('tickets', []).filter(t => t.organizerId === uid);
+        },
+        async markTicketUsed(id) {
+            if (fbDb) { await fbDb.collection('tickets').doc(id).update({ status: 'used', usedAt: Date.now() }); return; }
+            const list = LS.get('tickets', []); const t = list.find(x => x.id === id); if (t) { t.status = 'used'; t.usedAt = Date.now(); LS.set('tickets', list); }
+        },
+        async incrementSold(eventId, typeName, qty) {
+            const ev = await this.getEvent(eventId); if (!ev || !ev.ticketTypes) return;
+            const tt = ev.ticketTypes.find(x => x.name === typeName); if (tt) tt.sold = (tt.sold || 0) + qty;
+            await this.saveEvent(ev);
+        },
+
+        async createContribution(c) {
+            if (fbDb) { await fbDb.collection('contributions').add(c); return; }
+            const list = LS.get('contributions', []); c.id = newId(); list.unshift(c); LS.set('contributions', list);
+        },
+        async listContributionsByOrganizer(uid) {
+            if (fbDb) { const s = await fbDb.collection('contributions').where('organizerId', '==', uid).get(); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
+            return LS.get('contributions', []).filter(c => c.organizerId === uid);
+        }
+    };
+
+    /* ================================================================
+       AUTH — Firebase Auth when configured, else a local pseudo-login
+       for the demo so an organizer can try the dashboard end-to-end.
+       ================================================================ */
+    const Auth = {
+        user: null,
+        _cbs: [],
+        onChange(cb) { this._cbs.push(cb); cb(this.user); },
+        _emit() { this._cbs.forEach(cb => cb(this.user)); },
+        async register(email, password, name) {
+            if (fbAuth) { const cr = await fbAuth.createUserWithEmailAndPassword(email, password); await cr.user.updateProfile({ displayName: name }); return; }
+            this.user = { uid: 'local-' + btoa(email).replace(/=/g, ''), email, displayName: name }; LS.set('localUser', this.user); this._emit();
+        },
+        async signIn(email, password) {
+            if (fbAuth) { await fbAuth.signInWithEmailAndPassword(email, password); return; }
+            const saved = LS.get('localUser'); if (saved && saved.email === email) { this.user = saved; this._emit(); return; }
+            this.user = { uid: 'local-' + btoa(email).replace(/=/g, ''), email, displayName: email.split('@')[0] }; LS.set('localUser', this.user); this._emit();
+        },
+        async signOut() {
+            if (fbAuth) { await fbAuth.signOut(); return; }
+            this.user = null; this._emit();
+        }
+    };
+    if (fbAuth) { fbAuth.onAuthStateChanged(u => { Auth.user = u ? { uid: u.uid, email: u.email, displayName: u.displayName || (u.email || '').split('@')[0] } : null; Auth._emit(); }); }
+    else { const saved = LS.get('localUser'); if (saved) Auth.user = saved; }
+
+    /* ================================================================
+       ROUTER / VIEWS
+       ================================================================ */
+    const VIEWS = ['home', 'event', 'campaign', 'ticket', 'organizer'];
+    let currentCat = 'all';
+
+    function showView(name) {
+        VIEWS.forEach(v => $('view-' + v).classList.toggle('hidden', v !== name));
+        window.scrollTo(0, 0);
+    }
+    function goHome() { showView('home'); renderHome(); }
+    function scrollToEvents() { showView('home'); setTimeout(() => $('eventsAnchor').scrollIntoView({ behavior: 'smooth' }), 50); }
+    function scrollToCampaigns() { setTimeout(() => $('campaignsAnchor').scrollIntoView({ behavior: 'smooth' }), 50); }
+    function filterCat(cat, btn) {
+        currentCat = cat;
+        document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+        btn && btn.classList.add('active');
+        showView('home'); renderHome();
+    }
+
+    /* ---------------- HOME ---------------- */
+    async function renderHome() {
+        const q = ($('searchInput') && $('searchInput').value || '').toLowerCase().trim();
+        const [events, campaigns] = await Promise.all([DB.listEvents(), DB.listCampaigns()]);
+
+        let evs = events.filter(e => e.status !== 'closed');
+        if (currentCat !== 'all' && currentCat !== 'fundraiser') evs = evs.filter(e => e.category === currentCat);
+        if (q) evs = evs.filter(e => (e.title + ' ' + e.venue + ' ' + (e.organizerName || '')).toLowerCase().includes(q));
+
+        let camps = campaigns.filter(c => c.status !== 'closed');
+        if (q) camps = camps.filter(c => (c.title + ' ' + (c.organizerName || '')).toLowerCase().includes(q));
+
+        const showEvents = currentCat !== 'fundraiser';
+        const showCamps = currentCat === 'all' || currentCat === 'fundraiser';
+
+        $('eventsAnchor').style.display = showEvents ? '' : 'none';
+        $('eventsGrid').style.display = showEvents ? '' : 'none';
+        $('campaignsAnchor').style.display = showCamps ? '' : 'none';
+        $('campaignsGrid').style.display = showCamps ? '' : 'none';
+
+        $('eventsCount').textContent = showEvents ? (evs.length + ' event' + (evs.length === 1 ? '' : 's')) : '';
+        $('eventsGrid').innerHTML = evs.map(eventCard).join('');
+        $('eventsEmpty').classList.toggle('hidden', !showEvents || evs.length > 0);
+        $('campaignsGrid').innerHTML = camps.map(campaignCard).join('');
+        $('campaignsEmpty').classList.toggle('hidden', !showCamps || camps.length > 0);
+    }
+
+    function fromPrice(e) { const p = (e.ticketTypes || []).map(t => t.priceZmw); return p.length ? Math.min(...p) : 0; }
+    function eventCard(e) {
+        const m = CAT_META[e.category] || CAT_META.music;
+        return `<div onclick="openEvent('${e.id}')" class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition cursor-pointer border border-slate-100 group">
+            <div class="relative h-44 bg-brand-100 overflow-hidden">
+                ${e.image ? `<img src="${esc(e.image)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">` : `<div class="w-full h-full flex items-center justify-center text-brand-300 text-5xl"><i class="fas ${m.icon}"></i></div>`}
+                <span class="absolute top-3 left-3 ${m.color} text-white text-[11px] font-bold px-2.5 py-1 rounded-full"><i class="fas ${m.icon} mr-1"></i>${m.label}</span>
+            </div>
+            <div class="p-4">
+                <h4 class="font-bold leading-snug line-clamp-2">${esc(e.title)}</h4>
+                <p class="text-xs text-slate-500 mt-1.5"><i class="fas fa-calendar-day mr-1 text-brand-400"></i>${esc(fmtDate(e.date, e.time))}</p>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-1"><i class="fas fa-location-dot mr-1 text-brand-400"></i>${esc(e.venue)}</p>
+                <div class="flex items-center justify-between mt-3">
+                    <span class="text-brand-700 font-extrabold">from ${fmtK(fromPrice(e))}</span>
+                    <span class="text-xs font-bold text-white bg-brand-600 px-3 py-1.5 rounded-full">Get tickets</span>
+                </div>
+            </div>
+        </div>`;
+    }
+    function campaignCard(c) {
+        const pct = Math.min(100, Math.round((c.raisedZmw || 0) / (c.goalZmw || 1) * 100));
+        return `<div onclick="openCampaign('${c.id}')" class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition cursor-pointer border border-slate-100 group">
+            <div class="relative h-40 bg-mag/10 overflow-hidden">
+                ${c.image ? `<img src="${esc(c.image)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">` : `<div class="w-full h-full flex items-center justify-center text-mag/40 text-5xl"><i class="fas fa-hand-holding-heart"></i></div>`}
+                <span class="absolute top-3 left-3 bg-mag text-white text-[11px] font-bold px-2.5 py-1 rounded-full"><i class="fas fa-hand-holding-heart mr-1"></i>Fundraiser</span>
+            </div>
+            <div class="p-4">
+                <h4 class="font-bold leading-snug line-clamp-2">${esc(c.title)}</h4>
+                <p class="text-xs text-slate-500 mt-1">by ${esc(c.organizerName || 'Organizer')}</p>
+                <div class="mt-3 h-2.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-mag to-accent rounded-full" style="width:${pct}%"></div></div>
+                <div class="flex items-center justify-between mt-2 text-sm">
+                    <span class="font-extrabold text-mag-deep">${fmtK(c.raisedZmw)}</span>
+                    <span class="text-xs text-slate-400">of ${fmtK(c.goalZmw)} · ${pct}%</span>
+                </div>
+                <button class="w-full mt-3 text-xs font-bold text-white bg-mag hover:bg-mag-deep px-3 py-2 rounded-full transition">Donate now</button>
+            </div>
+        </div>`;
+    }
+
+    /* ---------------- EVENT DETAIL ---------------- */
+    let activeEvent = null, selectedType = null;
+    async function openEvent(id) {
+        const e = await DB.getEvent(id); if (!e) { toast('Event not found'); return; }
+        activeEvent = e; selectedType = null;
+        const m = CAT_META[e.category] || CAT_META.music;
+        const soldOut = t => (t.quantity && (t.sold || 0) >= t.quantity);
+        $('view-event').innerHTML = `
+            <button onclick="goHome()" class="text-sm font-bold text-brand-600 hover:underline mb-4"><i class="fas fa-arrow-left mr-1"></i>Back to events</button>
+            <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                <div class="relative h-56 sm:h-72 bg-brand-100">
+                    ${e.image ? `<img src="${esc(e.image)}" class="w-full h-full object-cover" alt="">` : `<div class="w-full h-full flex items-center justify-center text-brand-300 text-6xl"><i class="fas ${m.icon}"></i></div>`}
+                    <span class="absolute top-4 left-4 ${m.color} text-white text-xs font-bold px-3 py-1.5 rounded-full"><i class="fas ${m.icon} mr-1"></i>${m.label}</span>
+                </div>
+                <div class="p-5 sm:p-7">
+                    <h2 class="text-2xl sm:text-3xl font-display font-extrabold">${esc(e.title)}</h2>
+                    <p class="text-sm text-slate-500 mt-1">by ${esc(e.organizerName || 'Organizer')}</p>
+                    <div class="grid sm:grid-cols-2 gap-3 mt-5 text-sm">
+                        <div class="flex items-center gap-2 bg-brand-50 rounded-xl p-3"><i class="fas fa-calendar-day text-brand-600"></i>${esc(fmtDate(e.date, e.time))}</div>
+                        <div class="flex items-center gap-2 bg-brand-50 rounded-xl p-3"><i class="fas fa-location-dot text-brand-600"></i>${esc(e.venue)}</div>
+                    </div>
+                    <p class="mt-5 text-slate-600 leading-relaxed whitespace-pre-line">${esc(e.description || '')}</p>
+
+                    <h3 class="mt-7 font-bold text-lg">Choose your ticket</h3>
+                    <div class="mt-3 space-y-2">
+                        ${(e.ticketTypes || []).map((t, i) => `
+                            <label class="flex items-center justify-between border-2 rounded-xl p-4 transition ${soldOut(t) ? 'opacity-50' : 'cursor-pointer hover:border-brand-400'}" id="tt-${i}" onclick="${soldOut(t) ? '' : `pickType(${i})`}">
+                                <div>
+                                    <div class="font-bold">${esc(t.name)} ${soldOut(t) ? '<span class="text-xs text-zam-red font-bold">· SOLD OUT</span>' : ''}</div>
+                                    <div class="text-xs text-slate-400">${t.quantity ? Math.max(0, t.quantity - (t.sold || 0)) + ' left' : 'Available'}</div>
+                                </div>
+                                <div class="text-brand-700 font-extrabold text-lg">${fmtK(t.priceZmw)}</div>
+                            </label>`).join('')}
+                    </div>
+                    <button id="buyBtn" onclick="buyTicket()" disabled class="w-full mt-5 bg-zam-green disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-800 text-white font-bold py-3.5 rounded-xl transition"><i class="fas fa-mobile-screen mr-1"></i> Select a ticket to continue</button>
+                    <p class="text-xs text-slate-400 mt-3 text-center"><i class="fas fa-shield-halved mr-1"></i>Secure Mobile Money payment · instant QR ticket</p>
+                </div>
+            </div>`;
+        showView('event');
+    }
+    function pickType(i) {
+        selectedType = i;
+        activeEvent.ticketTypes.forEach((_, j) => $('tt-' + j).classList.toggle('border-brand-500', j === i));
+        activeEvent.ticketTypes.forEach((_, j) => { if (j !== i) $('tt-' + j).classList.remove('border-brand-500'); });
+        const b = $('buyBtn'); b.disabled = false; b.innerHTML = `<i class="fas fa-mobile-screen mr-1"></i> Buy ${esc(activeEvent.ticketTypes[i].name)} — ${fmtK(activeEvent.ticketTypes[i].priceZmw)}`;
+    }
+    function buyTicket() {
+        if (selectedType == null) return;
+        const t = activeEvent.ticketTypes[selectedType];
+        openCheckout({ kind: 'ticket', event: activeEvent, ticketType: t, base: t.priceZmw });
+    }
+
+    /* ---------------- CAMPAIGN DETAIL ---------------- */
+    let activeCampaign = null;
+    async function openCampaign(id) {
+        const c = await DB.getCampaign(id); if (!c) { toast('Fundraiser not found'); return; }
+        activeCampaign = c;
+        const pct = Math.min(100, Math.round((c.raisedZmw || 0) / (c.goalZmw || 1) * 100));
+        $('view-campaign').innerHTML = `
+            <button onclick="goHome()" class="text-sm font-bold text-brand-600 hover:underline mb-4"><i class="fas fa-arrow-left mr-1"></i>Back</button>
+            <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+                <div class="relative h-56 bg-mag/10">
+                    ${c.image ? `<img src="${esc(c.image)}" class="w-full h-full object-cover" alt="">` : `<div class="w-full h-full flex items-center justify-center text-mag/40 text-6xl"><i class="fas fa-hand-holding-heart"></i></div>`}
+                    <span class="absolute top-4 left-4 bg-mag text-white text-xs font-bold px-3 py-1.5 rounded-full"><i class="fas fa-hand-holding-heart mr-1"></i>Fundraiser</span>
+                </div>
+                <div class="p-5 sm:p-7">
+                    <h2 class="text-2xl sm:text-3xl font-display font-extrabold">${esc(c.title)}</h2>
+                    <p class="text-sm text-slate-500 mt-1">by ${esc(c.organizerName || 'Organizer')}</p>
+                    <div class="mt-5 h-3.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-mag to-accent rounded-full" style="width:${pct}%"></div></div>
+                    <div class="flex items-end justify-between mt-3">
+                        <div><div class="text-2xl font-extrabold text-mag-deep">${fmtK(c.raisedZmw)}</div><div class="text-xs text-slate-400">raised of ${fmtK(c.goalZmw)} goal</div></div>
+                        <div class="text-right"><div class="text-2xl font-extrabold">${pct}%</div><div class="text-xs text-slate-400">${c.contributionsCount || 0} gifts</div></div>
+                    </div>
+                    <p class="mt-5 text-slate-600 leading-relaxed whitespace-pre-line">${esc(c.description || '')}</p>
+                    <button onclick="donateNow()" class="w-full mt-6 bg-mag hover:bg-mag-deep text-white font-bold py-3.5 rounded-xl transition"><i class="fas fa-heart mr-1"></i> Donate with Mobile Money</button>
+                    <p class="text-xs text-slate-400 mt-3 text-center"><i class="fas fa-receipt mr-1"></i>Every gift is logged and receipted for full transparency</p>
+                </div>
+            </div>`;
+        showView('campaign');
+    }
+    function donateNow() { openCheckout({ kind: 'donation', campaign: activeCampaign, base: 0 }); }
+
+    /* ================================================================
+       CHECKOUT (Mobile Money)
+       ================================================================ */
+    let checkoutCtx = null, selectedProvider = null;
+
+    function openCheckout(ctx) {
+        checkoutCtx = ctx; selectedProvider = null;
+        document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('selected'));
+        $('payError').classList.add('hidden');
+        $('payPhone').value = ''; $('payName').value = ''; $('payEmail').value = ''; if ($('donationAmount')) $('donationAmount').value = '';
+        $('payStep1').classList.remove('hidden'); $('payStep2').classList.add('hidden'); $('payStep3').classList.add('hidden');
+
+        const isDon = ctx.kind === 'donation';
+        $('donationAmountWrap').classList.toggle('hidden', !isDon);
+        $('emailWrap').classList.toggle('hidden', isDon);
+        $('nameLabel').textContent = isDon ? 'Your name (shown to the cause)' : 'Your full name';
+        $('feeLabelBase').textContent = isDon ? 'Your gift' : 'Ticket price';
+        if (isDon) { $('paySummary').innerHTML = '<i class="fas fa-hand-holding-heart mr-1"></i>Donating to: <b>' + esc(ctx.campaign.title) + '</b>'; }
+        else { $('paySummary').innerHTML = '<i class="fas fa-ticket mr-1"></i>' + esc(ctx.event.title) + ' — <b>' + esc(ctx.ticketType.name) + '</b>'; }
+
+        recalcCheckout();
+        $('checkoutModal').classList.remove('hidden'); $('checkoutModal').classList.add('flex');
+    }
+    function closeCheckout() { $('checkoutModal').classList.add('hidden'); $('checkoutModal').classList.remove('flex'); }
+    function selectProvider(p, btn) { selectedProvider = p; document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); }
+    function setDonation(v) { $('donationAmount').value = v; recalcCheckout(); }
+
+    function checkoutBase() {
+        if (!checkoutCtx) return 0;
+        if (checkoutCtx.kind === 'donation') return Math.max(0, parseFloat($('donationAmount').value) || 0);
+        return checkoutCtx.base;
+    }
+    function recalcCheckout() {
+        const base = checkoutBase();
+        const fee = platformFee(base);
+        const total = Math.round((base + fee) * 100) / 100;
+        $('feeBase').textContent = fmtK(base);
+        $('feeAmt').textContent = fmtK(fee);
+        $('feeTotal').textContent = fmtK(total);
+        $('payTotal').textContent = fmtK(total);
+        checkoutCtx && (checkoutCtx._total = total, checkoutCtx._fee = fee, checkoutCtx._base = base);
+    }
+
+    // Attempts a real charge + server-signed issuance; returns
+    // { ok:true, tx_ref } | { ok:false } | { simulated:true }
+    async function tryRealPayment(order) {
+        if (!CONFIG.API_BASE_URL) return { simulated: true };
+        const base = CONFIG.API_BASE_URL.replace(/\/$/, '');
+        try {
+            const res = await fetch(base + '/api/pay', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: order.phone, network: order.provider, amount: order.total, message: order.message }),
+                signal: AbortSignal.timeout(30000)
+            });
+            const data = await res.json();
+            if (!res.ok || data.simulated || !data.tx_ref) return { simulated: true };
+            for (let i = 0; i < 24; i++) {
+                await new Promise(r => setTimeout(r, 5000));
+                try {
+                    const s = await fetch(base + '/api/pay/status?tx_ref=' + encodeURIComponent(data.tx_ref), { signal: AbortSignal.timeout(15000) }).then(r => r.json());
+                    if (s.status === 'successful') return { ok: true, tx_ref: data.tx_ref };
+                    if (s.status === 'failed' || s.status === 'cancelled') return { ok: false };
+                } catch (e) { /* transient */ }
+            }
+            return { ok: false };
+        } catch (e) { console.warn('Real payment unavailable, simulating:', e); return { simulated: true }; }
+    }
+
+    // Asks the backend for a server-signed ticket/receipt id (only issued after
+    // it re-verifies the payment). Falls back to a local id in demo mode.
+    async function issueToken(endpoint, tx_ref) {
+        if (CONFIG.API_BASE_URL) {
+            try {
+                const base = CONFIG.API_BASE_URL.replace(/\/$/, '');
+                const r = await fetch(base + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tx_ref }) });
+                if (r.ok) { const d = await r.json(); if (d.ticketId) return { id: d.ticketId, token: d.token }; if (d.receiptId) return { id: d.receiptId, token: d.token }; }
+            } catch (e) { console.warn('Token issue failed, using local id', e); }
+        }
+        return { id: newId(), token: 'demo-' + Math.random().toString(36).slice(2, 14) };
+    }
+
+    async function submitPayment() {
+        const phone = $('payPhone').value.trim();
+        const name = $('payName').value.trim();
+        const err = $('payError');
+        const isDon = checkoutCtx.kind === 'donation';
+        const base = checkoutBase();
+
+        if (isDon && base < 5) { return showErr('Please enter an amount of at least K5.'); }
+        if (!selectedProvider) { return showErr('Please choose your mobile network.'); }
+        if (!/^(9|7)\d{8}$/.test(phone)) { return showErr('Enter a valid Zambian number, e.g. 971234567.'); }
+        if (name.length < 2) { return showErr('Please enter your name.'); }
+        err.classList.add('hidden');
+
+        recalcCheckout();
+        const total = checkoutCtx._total;
+        const order = { provider: selectedProvider, phone, name, total, message: isDon ? 'ZedTickets gift' : 'ZedTickets' };
+        $('pay2Total').textContent = fmtK(total);
+        $('pay2Phone').textContent = '+260 ' + phone;
+        $('payStep1').classList.add('hidden'); $('payStep2').classList.remove('hidden');
+
+        const pay = await tryRealPayment(order);
+        if (pay.ok === false) {
+            $('payStep2').classList.add('hidden'); $('payStep1').classList.remove('hidden');
+            return showErr('The payment was not completed. Please check your phone and try again.');
+        }
+        if (pay.simulated) await new Promise(r => setTimeout(r, 3500));
+
+        if (isDon) await completeDonation(order, pay.tx_ref);
+        else await completeTicket(order, pay.tx_ref);
+    }
+    function showErr(msg) { const err = $('payError'); err.textContent = msg; err.classList.remove('hidden'); $('payStep2').classList.add('hidden'); $('payStep1').classList.remove('hidden'); }
+
+    async function completeTicket(order, tx_ref) {
+        const { id, token } = await issueToken('/api/issue-ticket', tx_ref);
+        const e = checkoutCtx.event, t = checkoutCtx.ticketType;
+        const ticket = {
+            id, token, kind: 'ticket', eventId: e.id, eventTitle: e.title, venue: e.venue, date: e.date, time: e.time,
+            organizerId: e.organizerId, ticketTypeName: t.name, priceZmw: checkoutCtx._base, platformFee: checkoutCtx._fee,
+            buyerName: order.name, buyerPhone: order.phone, buyerEmail: ($('payEmail').value || '').trim(),
+            status: 'valid', createdAt: Date.now(), txRef: tx_ref || null
+        };
+        try { await DB.createTicket(ticket); await DB.incrementSold(e.id, t.name, 1); } catch (err) { console.error(err); }
+        LS.set('myTickets', [id, ...(LS.get('myTickets', []))].slice(0, 50));
+        lastTicketId = id;
+        $('successMsg').innerHTML = 'Your ticket for <b>' + esc(e.title) + '</b> is ready. Show the QR at the gate.';
+        $('successBtn').textContent = 'View my ticket';
+        $('payStep2').classList.add('hidden'); $('payStep3').classList.remove('hidden');
+    }
+    async function completeDonation(order, tx_ref) {
+        const { id, token } = await issueToken('/api/record-contribution', tx_ref);
+        const c = checkoutCtx.campaign;
+        const contribution = {
+            id, token, campaignId: c.id, campaignTitle: c.title, organizerId: c.organizerId,
+            donorName: order.name, donorPhone: order.phone, amountZmw: checkoutCtx._base, platformFee: checkoutCtx._fee,
+            createdAt: Date.now(), txRef: tx_ref || null
+        };
+        try { await DB.createContribution(contribution); await DB.addRaised(c.id, checkoutCtx._base); } catch (err) { console.error(err); }
+        lastTicketId = null; lastDonationCampaign = c.id;
+        $('successMsg').innerHTML = 'Thank you, ' + esc(order.name) + '! Your gift of <b>' + fmtK(checkoutCtx._base) + '</b> to <b>' + esc(c.title) + '</b> is recorded. Receipt #' + esc(String(id).slice(-8).toUpperCase()) + '.';
+        $('successBtn').textContent = 'Back to fundraiser';
+        $('payStep2').classList.add('hidden'); $('payStep3').classList.remove('hidden');
+    }
+
+    let lastTicketId = null, lastDonationCampaign = null;
+    function finishCheckout() {
+        closeCheckout();
+        if (lastTicketId) showTicket(lastTicketId);
+        else if (lastDonationCampaign) openCampaign(lastDonationCampaign);
+        else goHome();
+    }
+
+    /* ================================================================
+       TICKET VIEW (with QR)
+       ================================================================ */
+    async function showTicket(id) {
+        const t = await DB.getTicket(id);
+        if (!t) { toast('Ticket not found'); goHome(); return; }
+        const used = t.status === 'used';
+        $('view-ticket').innerHTML = `
+            <button onclick="goHome()" class="text-sm font-bold text-brand-600 hover:underline mb-4"><i class="fas fa-arrow-left mr-1"></i>Home</button>
+            <div class="bg-[#0d0716] text-white rounded-3xl overflow-hidden shadow-2xl">
+                <div class="p-6 text-center">
+                    <div class="inline-flex items-center gap-1.5 text-mag-soft text-xs font-bold uppercase tracking-widest"><i class="fas fa-ticket"></i> ZedTickets</div>
+                    <h2 class="text-2xl font-display font-extrabold mt-2">${esc(t.eventTitle)}</h2>
+                    <p class="text-brand-200 text-sm mt-1">${esc(fmtDate(t.date, t.time))}</p>
+                    <p class="text-brand-200/80 text-xs mt-0.5">${esc(t.venue)}</p>
+                </div>
+                <div class="ticket-notch border-t-2 border-dashed border-white/20"></div>
+                <div class="p-6 bg-white text-slate-800 text-center">
+                    <div id="qrbox" class="bg-white inline-block p-2 rounded-xl border-4 ${used ? 'border-zam-red' : 'border-brand-600'}"></div>
+                    <p class="mt-3 font-bold text-lg">${esc(t.ticketTypeName)}</p>
+                    <p class="text-sm text-slate-500">${esc(t.buyerName)} · +260${esc(t.buyerPhone)}</p>
+                    <p class="text-xs text-slate-400 mt-1">Ticket #${esc(String(t.id).slice(-8).toUpperCase())} · Paid ${fmtK((t.priceZmw||0)+(t.platformFee||0))}</p>
+                    <div class="mt-3 inline-block ${used ? 'bg-zam-red' : 'bg-zam-green'} text-white text-xs font-bold px-4 py-1.5 rounded-full">${used ? 'ALREADY USED' : 'VALID · Show at the gate'}</div>
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="shareTicket('${t.id}')" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold py-2.5 rounded-xl"><i class="fas fa-share-nodes mr-1"></i>Share</button>
+                        <button onclick="window.print()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold py-2.5 rounded-xl"><i class="fas fa-download mr-1"></i>Save</button>
+                    </div>
+                </div>
+            </div>
+            <p class="text-center text-xs text-slate-400 mt-4">Keep this QR safe. Each ticket can only be scanned once.</p>`;
+        showView('ticket');
+        $('qrbox').innerHTML = '';
+        new QRCode($('qrbox'), { text: t.id + '.' + (t.token || ''), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    }
+    function shareTicket(id) {
+        const url = location.origin + location.pathname + '?ticket=' + id;
+        if (navigator.share) navigator.share({ title: 'My ZedTickets ticket', url }).catch(() => {});
+        else { navigator.clipboard.writeText(url).then(() => toast('Ticket link copied')); }
+    }
+
+    /* ================================================================
+       ORGANIZER (login + dashboard)
+       ================================================================ */
+    let orgTab = 'events';
+    function showOrganizer() { showView('organizer'); renderOrganizer(); }
+
+    function renderOrganizer() {
+        if (!Auth.user) return renderLogin();
+        renderDashboard();
+    }
+    function renderLogin() {
+        $('view-organizer').innerHTML = `
+            <div class="max-w-md mx-auto">
+                <button onclick="goHome()" class="text-sm font-bold text-brand-600 hover:underline mb-4"><i class="fas fa-arrow-left mr-1"></i>Home</button>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                    <div class="text-center mb-5"><div class="bg-gradient-to-br from-brand-600 to-mag text-white w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mx-auto"><i class="fas fa-user-tie"></i></div>
+                        <h2 class="text-xl font-display font-extrabold mt-3">Organizer sign in</h2>
+                        <p class="text-sm text-slate-500 mt-1">Create events, run fundraisers, track sales.</p>
+                    </div>
+                    <div id="regNameWrap" class="hidden mb-3"><label class="text-sm font-semibold text-slate-600 block mb-1">Organization / your name</label><input id="orgName" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" placeholder="e.g. Grace Chapel"></div>
+                    <label class="text-sm font-semibold text-slate-600 block mb-1">Email</label>
+                    <input id="orgEmail" type="email" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-200" placeholder="you@email.com">
+                    <label class="text-sm font-semibold text-slate-600 block mb-1">Password</label>
+                    <input id="orgPass" type="password" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" placeholder="••••••••">
+                    <p id="orgErr" class="text-zam-red text-sm font-semibold mt-2 hidden"></p>
+                    <button id="orgSubmit" onclick="doAuth()" class="w-full mt-4 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition">Sign in</button>
+                    <p class="text-center text-sm text-slate-500 mt-3">
+                        <span id="authToggleText">New organizer?</span>
+                        <button onclick="toggleAuthMode()" id="authToggleBtn" class="text-brand-600 font-bold hover:underline">Create an account</button>
+                    </p>
+                    ${DB.mode === 'local' ? '<p class="text-center text-[11px] text-slate-400 mt-3"><i class="fas fa-circle-info mr-1"></i>Demo mode — data is saved on this device only. Connect Firebase for a real account (see SETUP.md).</p>' : ''}
+                </div>
+            </div>`;
+    }
+    let authMode = 'signin';
+    function toggleAuthMode() {
+        authMode = authMode === 'signin' ? 'register' : 'signin';
+        $('regNameWrap').classList.toggle('hidden', authMode !== 'register');
+        $('orgSubmit').textContent = authMode === 'register' ? 'Create account' : 'Sign in';
+        $('authToggleText').textContent = authMode === 'register' ? 'Already have an account?' : 'New organizer?';
+        $('authToggleBtn').textContent = authMode === 'register' ? 'Sign in' : 'Create an account';
+    }
+    async function doAuth() {
+        const email = $('orgEmail').value.trim(), pass = $('orgPass').value, name = ($('orgName') && $('orgName').value || '').trim();
+        const err = $('orgErr');
+        if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { err.textContent = 'Enter a valid email.'; err.classList.remove('hidden'); return; }
+        if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.classList.remove('hidden'); return; }
+        if (authMode === 'register' && name.length < 2) { err.textContent = 'Enter your organization name.'; err.classList.remove('hidden'); return; }
+        err.classList.add('hidden');
+        try {
+            if (authMode === 'register') await Auth.register(email, pass, name);
+            else await Auth.signIn(email, pass);
+            renderOrganizer();
+        } catch (e) { err.textContent = (e && e.message) || 'Sign in failed.'; err.classList.remove('hidden'); }
+    }
+
+    async function renderDashboard() {
+        const uid = Auth.user.uid;
+        const [events, campaigns, tickets, contribs] = await Promise.all([
+            DB.listEvents(), DB.listCampaigns(), DB.listTicketsByOrganizer(uid).catch(() => []), DB.listContributionsByOrganizer(uid).catch(() => [])
+        ]);
+        const myEvents = events.filter(e => e.organizerId === uid);
+        const myCamps = campaigns.filter(c => c.organizerId === uid);
+        const ticketRevenue = tickets.reduce((s, t) => s + (t.priceZmw || 0), 0);
+        const donationRevenue = contribs.reduce((s, c) => s + (c.amountZmw || 0), 0);
+        const feesCollected = tickets.reduce((s, t) => s + (t.platformFee || 0), 0) + contribs.reduce((s, c) => s + (c.platformFee || 0), 0);
+
+        $('view-organizer').innerHTML = `
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div><h2 class="text-2xl font-display font-extrabold">Organizer dashboard</h2><p class="text-sm text-slate-500">${esc(Auth.user.displayName || Auth.user.email)}${DB.mode === 'local' ? ' · <span class="text-amber-600">demo mode</span>' : ''}</p></div>
+                <div class="flex gap-2">
+                    <a href="scan.html" class="bg-brand-900 text-white text-sm font-bold px-4 py-2.5 rounded-full hover:bg-brand-700"><i class="fas fa-qrcode mr-1"></i>Gate scanner</a>
+                    <button onclick="logout()" class="bg-slate-100 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-full hover:bg-slate-200"><i class="fas fa-right-from-bracket mr-1"></i>Sign out</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl p-4 border border-slate-100"><div class="text-xs text-slate-400">Tickets sold</div><div class="text-2xl font-extrabold text-brand-700">${tickets.length}</div></div>
+                <div class="bg-white rounded-2xl p-4 border border-slate-100"><div class="text-xs text-slate-400">Ticket revenue</div><div class="text-2xl font-extrabold text-brand-700">${fmtK(ticketRevenue)}</div></div>
+                <div class="bg-white rounded-2xl p-4 border border-slate-100"><div class="text-xs text-slate-400">Donations</div><div class="text-2xl font-extrabold text-mag-deep">${fmtK(donationRevenue)}</div></div>
+                <div class="bg-white rounded-2xl p-4 border border-slate-100"><div class="text-xs text-slate-400">Platform fees</div><div class="text-2xl font-extrabold text-slate-500">${fmtK(feesCollected)}</div></div>
+            </div>
+            <div class="flex gap-4 border-b mb-5 text-sm font-bold">
+                <button onclick="setOrgTab('events')" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 ${orgTab==='events'?'active':''}">My events (${myEvents.length})</button>
+                <button onclick="setOrgTab('campaigns')" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 ${orgTab==='campaigns'?'active':''}">Fundraisers (${myCamps.length})</button>
+                <button onclick="setOrgTab('create')" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 ${orgTab==='create'?'active':''}">＋ Create</button>
+            </div>
+            <div id="orgTabBody"></div>`;
+
+        if (orgTab === 'events') renderOrgEvents(myEvents, tickets);
+        else if (orgTab === 'campaigns') renderOrgCampaigns(myCamps);
+        else renderCreate();
+    }
+    function setOrgTab(t) { orgTab = t; renderDashboard(); }
+    async function logout() { await Auth.signOut(); goHome(); }
+
+    function renderOrgEvents(myEvents, tickets) {
+        const body = $('orgTabBody');
+        if (!myEvents.length) { body.innerHTML = emptyState('fa-calendar-plus', 'No events yet', 'Create your first event to start selling tickets.'); return; }
+        body.innerHTML = myEvents.map(e => {
+            const et = tickets.filter(t => t.eventId === e.id);
+            const sold = et.length, rev = et.reduce((s, t) => s + (t.priceZmw || 0), 0);
+            const used = et.filter(t => t.status === 'used').length;
+            return `<div class="bg-white rounded-2xl p-4 border border-slate-100 mb-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div><h4 class="font-bold">${esc(e.title)}</h4><p class="text-xs text-slate-500">${esc(fmtDate(e.date, e.time))} · ${esc(e.venue)}</p></div>
+                    <span class="text-xs font-bold ${e.status==='closed'?'text-slate-400':'text-zam-green'}">${e.status==='closed'?'Closed':'Live'}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-3 text-center text-sm">
+                    <div class="bg-brand-50 rounded-lg py-2"><div class="font-extrabold text-brand-700">${sold}</div><div class="text-[11px] text-slate-400">sold</div></div>
+                    <div class="bg-brand-50 rounded-lg py-2"><div class="font-extrabold text-brand-700">${fmtK(rev)}</div><div class="text-[11px] text-slate-400">revenue</div></div>
+                    <div class="bg-brand-50 rounded-lg py-2"><div class="font-extrabold text-brand-700">${used}</div><div class="text-[11px] text-slate-400">checked in</div></div>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="openEvent('${e.id}')" class="flex-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 py-2 rounded-lg">View page</button>
+                    <button onclick="toggleClose('event','${e.id}')" class="flex-1 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 rounded-lg">${e.status==='closed'?'Reopen':'Close'}</button>
+                    <button onclick="removeItem('event','${e.id}')" class="text-xs font-bold text-zam-red bg-red-50 hover:bg-red-100 py-2 px-3 rounded-lg"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    function renderOrgCampaigns(myCamps) {
+        const body = $('orgTabBody');
+        if (!myCamps.length) { body.innerHTML = emptyState('fa-hand-holding-heart', 'No fundraisers yet', 'Open a fundraiser to start receiving gifts.'); return; }
+        body.innerHTML = myCamps.map(c => {
+            const pct = Math.min(100, Math.round((c.raisedZmw || 0) / (c.goalZmw || 1) * 100));
+            return `<div class="bg-white rounded-2xl p-4 border border-slate-100 mb-3">
+                <div class="flex items-start justify-between gap-3"><h4 class="font-bold">${esc(c.title)}</h4><span class="text-xs font-bold ${c.status==='closed'?'text-slate-400':'text-mag'}">${c.status==='closed'?'Closed':'Live'}</span></div>
+                <div class="mt-3 h-2.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-mag to-accent" style="width:${pct}%"></div></div>
+                <div class="flex justify-between text-sm mt-2"><span class="font-extrabold text-mag-deep">${fmtK(c.raisedZmw)}</span><span class="text-xs text-slate-400">of ${fmtK(c.goalZmw)} · ${c.contributionsCount||0} gifts</span></div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="openCampaign('${c.id}')" class="flex-1 text-xs font-bold text-mag-deep bg-mag/10 hover:bg-mag/20 py-2 rounded-lg">View page</button>
+                    <button onclick="toggleClose('campaign','${c.id}')" class="flex-1 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 rounded-lg">${c.status==='closed'?'Reopen':'Close'}</button>
+                    <button onclick="removeItem('campaign','${c.id}')" class="text-xs font-bold text-zam-red bg-red-50 hover:bg-red-100 py-2 px-3 rounded-lg"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    function emptyState(icon, title, sub) { return `<div class="text-center py-12 text-slate-400"><i class="fas ${icon} text-4xl"></i><p class="font-bold text-slate-600 mt-3">${title}</p><p class="text-sm">${sub}</p></div>`; }
+
+    async function toggleClose(kind, id) {
+        if (kind === 'event') { const e = await DB.getEvent(id); e.status = e.status === 'closed' ? 'active' : 'closed'; await DB.saveEvent(e); }
+        else { const c = await DB.getCampaign(id); c.status = c.status === 'closed' ? 'active' : 'closed'; await DB.saveCampaign(c); }
+        renderDashboard();
+    }
+    async function removeItem(kind, id) {
+        if (!confirm('Delete this ' + kind + '? This cannot be undone.')) return;
+        if (kind === 'event') await DB.deleteEvent(id); else await DB.deleteCampaign(id);
+        toast('Deleted'); renderDashboard();
+    }
+
+    /* ---------------- CREATE FORM ---------------- */
+    let createKind = 'event', ttRows = [{ name: 'General', priceZmw: 100, quantity: 200 }];
+    function renderCreate() {
+        const body = $('orgTabBody');
+        body.innerHTML = `
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 max-w-2xl">
+                <div class="flex gap-2 mb-5">
+                    <button onclick="setCreateKind('event')" class="flex-1 py-2.5 rounded-xl font-bold text-sm ${createKind==='event'?'bg-brand-600 text-white':'bg-slate-100 text-slate-600'}"><i class="fas fa-ticket mr-1"></i>Ticketed event</button>
+                    <button onclick="setCreateKind('campaign')" class="flex-1 py-2.5 rounded-xl font-bold text-sm ${createKind==='campaign'?'bg-mag text-white':'bg-slate-100 text-slate-600'}"><i class="fas fa-hand-holding-heart mr-1"></i>Fundraiser</button>
+                </div>
+                <div class="space-y-3">
+                    <div><label class="text-sm font-semibold text-slate-600 block mb-1">Title</label><input id="cTitle" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm" placeholder="${createKind==='event'?'e.g. Afrobeats Night':'e.g. New Church Roof Appeal'}"></div>
+                    <div><label class="text-sm font-semibold text-slate-600 block mb-1">Category</label>
+                        <select id="cCat" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white">
+                            ${createKind==='event' ? `<option value="music">Concert / Music</option><option value="church">Church / Religious</option><option value="wedding">Wedding / Celebration</option><option value="sports">Sports</option><option value="conference">Conference</option>` : `<option value="fundraiser">Fundraiser</option>`}
+                        </select></div>
+                    <div><label class="text-sm font-semibold text-slate-600 block mb-1">Image URL <span class="text-slate-400 font-normal">(optional)</span></label><input id="cImage" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm" placeholder="https://..."></div>
+                    <div><label class="text-sm font-semibold text-slate-600 block mb-1">Description</label><textarea id="cDesc" rows="3" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm" placeholder="Tell people what to expect..."></textarea></div>
+                    ${createKind==='event' ? `
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-sm font-semibold text-slate-600 block mb-1">Date</label><input id="cDate" type="date" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm"></div>
+                            <div><label class="text-sm font-semibold text-slate-600 block mb-1">Time</label><input id="cTime" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm"></div>
+                        </div>
+                        <div><label class="text-sm font-semibold text-slate-600 block mb-1">Venue</label><input id="cVenue" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm" placeholder="e.g. Mulungushi Conference Centre, Lusaka"></div>
+                        <div><label class="text-sm font-semibold text-slate-600 block mb-2">Ticket types</label><div id="ttRows" class="space-y-2"></div>
+                            <button type="button" onclick="addTtRow()" class="text-sm font-bold text-brand-600 mt-2"><i class="fas fa-plus mr-1"></i>Add ticket type</button></div>
+                    ` : `
+                        <div><label class="text-sm font-semibold text-slate-600 block mb-1">Fundraising goal (ZMW)</label>
+                            <div class="flex"><span class="bg-slate-100 border border-r-0 border-slate-300 rounded-l-xl px-3 flex items-center text-sm font-semibold text-slate-500">K</span>
+                            <input id="cGoal" type="number" min="100" class="flex-1 border border-slate-300 rounded-r-xl px-3 py-2.5 text-sm" placeholder="e.g. 50000"></div></div>
+                    `}
+                    <p id="createErr" class="text-zam-red text-sm font-semibold hidden"></p>
+                    <button onclick="saveCreate()" class="w-full mt-2 ${createKind==='event'?'bg-brand-600 hover:bg-brand-700':'bg-mag hover:bg-mag-deep'} text-white font-bold py-3 rounded-xl transition">Publish ${createKind==='event'?'event':'fundraiser'}</button>
+                    <p class="text-xs text-slate-400 text-center"><i class="fas fa-info-circle mr-1"></i>ZedTickets takes a ${CONFIG.PLATFORM_FEE_PERCENT}% platform fee per transaction. ${DB.mode==='local'?'(Demo mode: saved on this device.)':''}</p>
+                </div>
+            </div>`;
+        if (createKind === 'event') renderTtRows();
+    }
+    function setCreateKind(k) { createKind = k; renderCreate(); }
+    function renderTtRows() {
+        $('ttRows').innerHTML = ttRows.map((r, i) => `
+            <div class="flex gap-2 items-center">
+                <input value="${esc(r.name)}" oninput="ttRows[${i}].name=this.value" placeholder="Name" class="flex-1 border border-slate-300 rounded-lg px-2.5 py-2 text-sm">
+                <div class="flex w-24"><span class="bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg px-2 flex items-center text-xs text-slate-500">K</span><input value="${r.priceZmw}" type="number" min="0" oninput="ttRows[${i}].priceZmw=+this.value" class="w-full border border-slate-300 rounded-r-lg px-1.5 py-2 text-sm"></div>
+                <input value="${r.quantity}" type="number" min="1" oninput="ttRows[${i}].quantity=+this.value" placeholder="Qty" class="w-16 border border-slate-300 rounded-lg px-2 py-2 text-sm" title="Quantity">
+                ${ttRows.length > 1 ? `<button onclick="ttRows.splice(${i},1);renderTtRows()" class="text-zam-red px-1"><i class="fas fa-xmark"></i></button>` : ''}
+            </div>`).join('');
+    }
+    function addTtRow() { ttRows.push({ name: '', priceZmw: 50, quantity: 100 }); renderTtRows(); }
+
+    async function saveCreate() {
+        const err = $('createErr');
+        const title = $('cTitle').value.trim();
+        if (title.length < 3) { err.textContent = 'Please enter a title.'; err.classList.remove('hidden'); return; }
+        const common = { organizerId: Auth.user.uid, organizerName: Auth.user.displayName || Auth.user.email.split('@')[0], category: $('cCat').value, image: $('cImage').value.trim(), description: $('cDesc').value.trim(), status: 'active', createdAt: Date.now() };
+
+        if (createKind === 'event') {
+            const date = $('cDate').value, venue = $('cVenue').value.trim();
+            if (!date) { err.textContent = 'Please choose a date.'; err.classList.remove('hidden'); return; }
+            if (venue.length < 3) { err.textContent = 'Please enter a venue.'; err.classList.remove('hidden'); return; }
+            const types = ttRows.filter(r => r.name.trim() && r.priceZmw >= 0).map(r => ({ name: r.name.trim(), priceZmw: +r.priceZmw, quantity: +r.quantity || 0, sold: 0 }));
+            if (!types.length) { err.textContent = 'Add at least one ticket type.'; err.classList.remove('hidden'); return; }
+            await DB.saveEvent({ ...common, title, date, time: $('cTime').value, venue, ticketTypes: types });
+        } else {
+            const goal = +$('cGoal').value;
+            if (!(goal >= 100)) { err.textContent = 'Enter a goal of at least K100.'; err.classList.remove('hidden'); return; }
+            await DB.saveCampaign({ ...common, title, goalZmw: goal, raisedZmw: 0, contributionsCount: 0 });
+        }
+        toast('Published! 🎉');
+        ttRows = [{ name: 'General', priceZmw: 100, quantity: 200 }];
+        orgTab = createKind === 'event' ? 'events' : 'campaigns';
+        renderDashboard();
+    }
+
+    /* ================================================================
+       INIT
+       ================================================================ */
+    (function init() {
+        const params = new URLSearchParams(location.search);
+        const tid = params.get('ticket');
+        if (tid) { const id = tid.split('.')[0]; showTicket(id); return; }
+        goHome();
+    })();
+    </script>
+</body>
+</html>
