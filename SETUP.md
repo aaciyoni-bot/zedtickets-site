@@ -71,6 +71,38 @@ The pilot lets the public create ticket/contribution documents directly (they ca
 
 ---
 
+## 5. VeriPoints — shared ORIZIS wallet / loyalty (OPTIONAL add-on)
+
+ZedTickets ships with a **modular** VeriPoints layer. **It is off by default** (`VERIPOINTS_ENABLED: false`), so the live site behaves exactly as documented above — Mobile Money only, no extra buttons, no errors. Turn it on to give buyers a second way to pay (their shared ORIZIS points) and to earn loyalty points on every purchase across the whole family of sites.
+
+It **reuses the existing central VeriPoints** (`C:\Users\aaciy\projects\VeriPoints`) — one wallet per user across all ORIZIS sites. Nothing new is invented here.
+
+### ⚠️ Regulation (must keep)
+- **Loyalty points** — earning points and redeeming them for discounts — is **low-risk and allowed**. This is the default mode.
+- A **wallet that holds real money** (topping up Kwacha and keeping a stored balance) is **e-money regulated by the Bank of Zambia** → only through a licensed issuing partner or with a licence. **Do not hold customer funds without a licence.** Real-money top-up stays in the **central licensed VeriPoints store**, never minted by ZedTickets.
+
+### To enable (once the central VeriPoints project is live)
+The central project needs to be running (its own Firebase project + Cloud Functions on Blaze — see the VeriPoints repo's own `docs/SETUP.md`). Then:
+
+1. In `index.html` (and `scan.html` if you scan with points later), set:
+   - `VERIPOINTS_ENABLED: true`
+   - `VERIPOINTS_API`: URL of `veripoints-sdk.js` on the central project (e.g. `https://<central>.web.app/sdk/veripoints-sdk.js`)
+   - `VERIPOINTS_ORIGIN`: the central origin (its token store)
+   - `VERIPOINTS_CENTRAL`: the central Firebase web config `{ apiKey, ... }` (optional if baked into the SDK)
+   - `EARN_PERCENT` (e.g. `3`) and `REDEEM_RATE` (points → Kwacha; `1` = 1 point per K1)
+2. On the Vercel **backend**, set env vars so the server can capture/credit points (server-verified — the client is never trusted):
+   | Variable | Value |
+   |---|---|
+   | `VERIPOINTS_FUNCTIONS_ORIGIN` | `https://<region>-<central>.cloudfunctions.net` |
+   | `VERIPOINTS_SERVER_KEY` | this site's secret server key (matches the central `functions/.env` for its site id) |
+   | `VERIPOINTS_SITE_ID` | `zedtickets` |
+   | `VERIPOINTS_PLATFORM_UID` | the ORIZIS/ZedTickets wallet uid that receives captured points |
+3. `/api/health` will then report `veripointsConfigured: true`. A "VeriPoints" tab appears at checkout and a balance chip in the header.
+
+**Earning** needs a central credit function (`walletCredit`). Until it exists, earn calls return `credited:false` harmlessly — the purchase still completes. Points **payment** uses the existing `walletHold` (client) → `walletCapture` (server, via your key) exactly per the VeriPoints API contract.
+
+Everywhere: if the SDK can't load or any call fails, checkout silently falls back to Mobile Money.
+
 ## Config quick-reference (top of `index.html`)
 
 | Key | Meaning |
@@ -79,6 +111,9 @@ The pilot lets the public create ticket/contribution documents directly (they ca
 | `PLATFORM_FEE_PERCENT` | Your revenue — fee per transaction (5–10%) |
 | `WHATSAPP_SUPPORT` | Support/organizer help number (use a **business** number) |
 | `firebaseConfig` | Firebase web config. Empty `apiKey` = local demo mode |
+| `VERIPOINTS_ENABLED` | `false` = MoMo only (default). `true` = show VeriPoints pay + loyalty |
+| `VERIPOINTS_API` / `VERIPOINTS_ORIGIN` / `VERIPOINTS_CENTRAL` | Central VeriPoints SDK URL / origin / Firebase config |
+| `EARN_PERCENT` / `REDEEM_RATE` | Loyalty earn % / points→Kwacha redemption rate |
 
 ## Future (not now)
 Multi-country: add ₦ Naira + Flutterwave for Nigeria + country detection. Keep Zambia pilot first. The payment layer is isolated in `backend/server.js` and the checkout in `index.html`, so a second provider slots in there.

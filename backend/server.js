@@ -30,14 +30,99 @@ const PAWAPAY_BASE = process.env.PAWAPAY_ENV === 'production'
 const TICKET_SECRET = process.env.TICKET_SECRET || crypto.randomBytes(32).toString('hex');
 const SECRET_IS_EPHEMERAL = !process.env.TICKET_SECRET;
 
+/* =====================================================================
+   VERIPOINTS (shared ORIZIS wallet / loyalty) — OPTIONAL server hooks.
+   These stay dormant unless the central VeriPoints project is wired via
+   env vars. When unset, the endpoints return { configured:false } and the
+   site simply keeps working Mobile-Money-only. The client treats any
+   non-success as "fall back to MoMo", so nothing ever breaks.
+
+     VERIPOINTS_FUNCTIONS_ORIGIN - base URL of the central Cloud Functions,
+                                   e.g. https://<region>-<central>.cloudfunctions.net
+     VERIPOINTS_SERVER_KEY       - secret server key for this site (matches the
+                                   central functions/.env for VERIPOINTS_SITE_ID)
+     VERIPOINTS_SITE_ID          - this site's id in VeriPoints (default 'zedtickets')
+     VERIPOINTS_PLATFORM_UID     - the ORIZIS/ZedTickets wallet uid that receives
+                                   captured points (revenue recipient)
+   ===================================================================== */
+const VP_ORIGIN = process.env.VERIPOINTS_FUNCTIONS_ORIGIN;
+const VP_KEY = process.env.VERIPOINTS_SERVER_KEY;
+const VP_SITE = process.env.VERIPOINTS_SITE_ID || 'zedtickets';
+const VP_PLATFORM_UID = process.env.VERIPOINTS_PLATFORM_UID;
+const vpConfigured = Boolean(VP_ORIGIN && VP_KEY);
+
+// Invoke a central VeriPoints callable function server-to-server. Callable
+// functions accept a { data: {...} } envelope and return { result: {...} }.
+async function vpCall(fnName, data) {
+    const r = await axios.post(`${VP_ORIGIN.replace(/\/$/, '')}/${fnName}`, { data }, {
+        headers: { 'Content-Type': 'application/json' }, timeout: 20000
+    });
+    return r.data && (r.data.result !== undefined ? r.data.result : r.data);
+}
+
 app.get('/api/health', (req, res) => {
     res.json({
         ok: true,
         service: 'zedtickets-backend',
         paymentsConfigured: Boolean(PAWAPAY_TOKEN),
         paymentsEnv: process.env.PAWAPAY_ENV === 'production' ? 'production' : 'sandbox',
-        ticketSecretConfigured: !SECRET_IS_EPHEMERAL
+        ticketSecretConfigured: !SECRET_IS_EPHEMERAL,
+        veripointsConfigured: vpConfigured
     });
+});
+
+// Capture points the buyer already put on hold (client-side VeriPoints.hold),
+// moving them to the platform wallet. Server-authorized via the secret key.
+app.post('/api/veripoints/capture', async (req, res) => {
+    if (!vpConfigured || !VP_PLATFORM_UID) return res.json({ configured: false });
+    const { holdId, amount } = req.body || {};
+    if (!holdId || !(amount > 0)) return res.status(400).json({ error: 'INVALID_INPUT' });
+    try {
+        await vpCall('walletCapture', {
+            holdId, siteId: VP_SITE, serverKey: VP_KEY,
+            splits: [{ toUid: VP_PLATFORM_UID, amount: Math.round(amount), role: 'platform' }]
+        });
+        // Issue the signed ticket/receipt id here — it is gated behind a real,
+        // server-verified points capture, exactly like a verified MoMo payment.
+        const id = randomUUID();
+        res.json({ captured: true, id, token: signTicket(id) });
+    } catch (e) {
+        res.status(502).json({ error: 'VP_CAPTURE_FAILED', message: e.message, response: e.response ? e.response.data : null });
+    }
+});
+
+// Release a hold the buyer no longer wants to spend (e.g. they cancelled).
+app.post('/api/veripoints/release', async (req, res) => {
+    if (!vpConfigured) return res.json({ configured: false });
+    const { holdId, reason } = req.body || {};
+    if (!holdId) return res.status(400).json({ error: 'INVALID_INPUT' });
+    try {
+        await vpCall('walletRelease', { holdId, siteId: VP_SITE, serverKey: VP_KEY, reason: reason || 'cancelled' });
+        res.json({ released: true });
+    } catch (e) {
+        res.status(502).json({ error: 'VP_RELEASE_FAILED', message: e.message });
+    }
+});
+
+// Loyalty earn: credit the buyer points after any successful purchase. Uses a
+// central credit function if the project exposes one (walletCredit). If not
+// available it degrades to { credited:false } — earning is a bonus, never a
+// blocker. Loyalty points are low-risk; real-money top-up stays in the central
+// store under proper licensing (see SETUP.md), never minted here.
+app.post('/api/veripoints/earn', async (req, res) => {
+    if (!vpConfigured) return res.json({ configured: false, credited: false });
+    const { uid, amount, reference } = req.body || {};
+    if (!uid || !(amount > 0)) return res.status(400).json({ error: 'INVALID_INPUT' });
+    try {
+        await vpCall('walletCredit', {
+            uid, amount: Math.round(amount), siteId: VP_SITE, serverKey: VP_KEY,
+            reason: 'loyalty', reference: reference || null
+        });
+        res.json({ credited: true, amount: Math.round(amount) });
+    } catch (e) {
+        // No credit function yet / not licensed — non-fatal.
+        res.json({ credited: false, reason: e.response && e.response.data ? 'unavailable' : e.message });
+    }
 });
 
 /* =====================================================================

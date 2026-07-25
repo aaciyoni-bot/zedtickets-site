@@ -110,6 +110,9 @@
                 <span class="absolute right-4 top-1/2 -translate-y-1/2 text-brand-500"><i class="fas fa-search"></i></span>
             </div>
 
+            <button id="vpChip" onclick="vpChipClick()" class="hidden shrink-0 items-center gap-1.5 bg-gradient-to-br from-brand-600 to-mag text-white text-sm font-bold px-3.5 py-2.5 rounded-full transition hover:brightness-110" title="VeriPoints — your shared ORIZIS balance">
+                <i class="fas fa-coins text-mag-soft"></i><span id="vpChipBal">0</span><span class="hidden sm:inline text-xs font-semibold opacity-80">pts</span>
+            </button>
             <button onclick="showOrganizer()" class="shrink-0 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-full transition">
                 <i class="fas fa-plus mr-1"></i><span class="hidden sm:inline">Sell / Fundraise</span><span class="sm:hidden">Organize</span>
             </button>
@@ -260,7 +263,37 @@
                     <p id="paySummary" class="text-emerald-100 text-sm mt-1"></p>
                     <p class="text-emerald-100 text-sm mt-1">Total to pay: <b id="payTotal" class="text-white">K0.00</b></p>
                 </div>
-                <div class="p-5 space-y-4">
+
+                <!-- Payment method toggle (only shown when VeriPoints is available) -->
+                <div id="methodToggle" class="hidden p-4 pb-0">
+                    <div class="grid grid-cols-2 gap-2 bg-slate-100 rounded-xl p-1">
+                        <button type="button" id="mBtnMomo" onclick="setPayMethod('momo')" class="py-2.5 rounded-lg text-sm font-bold transition"><i class="fas fa-mobile-screen mr-1"></i>Mobile Money</button>
+                        <button type="button" id="mBtnVp" onclick="setPayMethod('veripoints')" class="py-2.5 rounded-lg text-sm font-bold transition text-slate-500"><i class="fas fa-coins mr-1"></i>VeriPoints</button>
+                    </div>
+                </div>
+
+                <!-- VeriPoints panel -->
+                <div id="vpPanel" class="hidden p-5 space-y-4">
+                    <div id="vpSignedOut" class="text-center py-4">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-brand-600 to-mag text-white flex items-center justify-center text-2xl"><i class="fas fa-coins"></i></div>
+                        <p class="mt-3 font-bold">Pay with your ORIZIS balance</p>
+                        <p class="text-sm text-slate-500 mt-1">One wallet across every ORIZIS site. Sign in to use your points.</p>
+                        <button type="button" onclick="vpSignIn()" class="mt-4 w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl"><i class="fab fa-google mr-2"></i>Sign in to VeriPoints</button>
+                    </div>
+                    <div id="vpSignedIn" class="hidden space-y-3">
+                        <div class="flex items-center justify-between bg-brand-50 rounded-xl p-3">
+                            <span class="text-sm text-slate-600"><i class="fas fa-wallet text-brand-600 mr-1"></i>Your balance</span>
+                            <span class="font-extrabold text-brand-700"><span id="vpBalance">0</span> pts</span>
+                        </div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">This purchase</span><span id="vpCost" class="font-bold">0 pts</span></div>
+                        <p id="vpShort" class="hidden text-sm text-amber-600 font-semibold"><i class="fas fa-triangle-exclamation mr-1"></i>Not enough points. <button type="button" onclick="vpTopUp()" class="underline">Top up</button> or use Mobile Money.</p>
+                        <p id="vpError" class="text-zam-red text-sm font-semibold hidden"></p>
+                        <button type="button" id="vpPayBtn" onclick="payWithPoints()" class="w-full bg-gradient-to-br from-brand-600 to-mag text-white font-bold py-3.5 rounded-xl transition hover:brightness-110"><i class="fas fa-coins mr-1"></i>Pay with points</button>
+                        <button type="button" onclick="vpSignOut()" class="w-full text-slate-400 text-xs py-1 hover:text-slate-600">Use a different account</button>
+                    </div>
+                </div>
+
+                <div id="momoPanel" class="p-5 space-y-4">
                     <div id="donationAmountWrap" class="hidden">
                         <label class="text-sm font-semibold text-slate-600 block mb-2">Amount to give (ZMW)</label>
                         <div class="flex">
@@ -344,6 +377,19 @@
         PLATFORM_FEE_PERCENT: 7,          // ZedTickets revenue: fee per transaction (5–10%)
         CURRENCY: "K",
         WHATSAPP_SUPPORT: "260971234567", // support / organizer help (use a BUSINESS number)
+
+        /* ---- VeriPoints (shared ORIZIS wallet / loyalty) — OPTIONAL ----
+           Modular add-on. While VERIPOINTS_ENABLED is false (or the SDK can't
+           load) the site behaves EXACTLY as before: Mobile Money only, no
+           extra buttons, no errors. Turn on once the central VeriPoints
+           project is live (see SETUP.md). Loyalty-points mode is the default;
+           real-money wallet top-up lives in the central licensed store. */
+        VERIPOINTS_ENABLED: false,
+        VERIPOINTS_API: "",               // URL of veripoints-sdk.js on the central project
+        VERIPOINTS_ORIGIN: "",            // central VeriPoints origin (token store)
+        VERIPOINTS_CENTRAL: null,         // optional: central Firebase web config {apiKey,...}
+        EARN_PERCENT: 3,                  // loyalty points earned back on every purchase
+        REDEEM_RATE: 1,                   // 1 point = REDEEM_RATE Kwacha when paying with points
 
         // Firebase — leave apiKey "" to run in local demo mode (localStorage).
         // Fill from Firebase console → Project settings → Web app. See SETUP.md.
@@ -519,6 +565,102 @@
     };
     if (fbAuth) { fbAuth.onAuthStateChanged(u => { Auth.user = u ? { uid: u.uid, email: u.email, displayName: u.displayName || (u.email || '').split('@')[0] } : null; Auth._emit(); }); }
     else { const saved = LS.get('localUser'); if (saved) Auth.user = saved; }
+
+    /* ================================================================
+       VERIPOINTS (shared ORIZIS wallet / loyalty) — modular add-on.
+       If disabled or the SDK can't load, `VP.available` stays false and the
+       whole checkout runs exactly as before (Mobile Money only).
+       ================================================================ */
+    const VP = { available: false, user: null, balance: 0, method: 'momo', _balUnsub: null };
+    const pointsFor = zmw => Math.ceil(zmw / (CONFIG.REDEEM_RATE || 1));
+    const earnFor = base => Math.floor(base * (CONFIG.EARN_PERCENT || 0) / 100);
+
+    async function vpLoad() {
+        if (!CONFIG.VERIPOINTS_ENABLED || !CONFIG.VERIPOINTS_API) return;
+        try {
+            await new Promise((res, rej) => { const s = document.createElement('script'); s.src = CONFIG.VERIPOINTS_API; s.async = false; s.onload = res; s.onerror = () => rej(new Error('sdk load failed')); document.head.appendChild(s); });
+            if (!window.VeriPoints) return;
+            await VeriPoints.init({ siteId: 'zedtickets', config: CONFIG.VERIPOINTS_CENTRAL || undefined, origin: CONFIG.VERIPOINTS_ORIGIN || undefined });
+            VeriPoints.onUser(u => vpOnUser(u));
+            VP.available = true;
+        } catch (e) { console.warn('VeriPoints unavailable — Mobile Money only:', e); VP.available = false; }
+    }
+    function vpOnUser(u) {
+        VP.user = u || null;
+        if (VP._balUnsub) { try { VP._balUnsub(); } catch (e) {} VP._balUnsub = null; }
+        const chip = $('vpChip');
+        if (VP.user) {
+            chip.classList.remove('hidden'); chip.classList.add('flex');
+            VeriPoints.onBalance(b => { VP.balance = b.available || 0; $('vpChipBal').textContent = VP.balance; if ($('vpBalance')) $('vpBalance').textContent = VP.balance; updateVpPanel(); }).then(un => { VP._balUnsub = un; }).catch(() => {});
+        } else { chip.classList.add('hidden'); chip.classList.remove('flex'); VP.balance = 0; }
+        refreshVpCheckoutUI();
+    }
+    function vpChipClick() { toast(VP.balance + ' VeriPoints — usable at checkout across ORIZIS'); }
+
+    function setPayMethod(m) {
+        VP.method = m;
+        const momo = m === 'momo';
+        $('momoPanel').classList.toggle('hidden', !momo);
+        $('vpPanel').classList.toggle('hidden', momo);
+        $('mBtnMomo').classList.toggle('bg-white', momo); $('mBtnMomo').classList.toggle('shadow-sm', momo); $('mBtnMomo').classList.toggle('text-zam-green', momo); $('mBtnMomo').classList.toggle('text-slate-500', !momo);
+        $('mBtnVp').classList.toggle('bg-white', !momo); $('mBtnVp').classList.toggle('shadow-sm', !momo); $('mBtnVp').classList.toggle('text-brand-600', !momo); $('mBtnVp').classList.toggle('text-slate-500', momo);
+        if (!momo) { $('vpSignedOut').classList.toggle('hidden', !!VP.user); $('vpSignedIn').classList.toggle('hidden', !VP.user); updateVpPanel(); }
+    }
+    function refreshVpCheckoutUI() {
+        const show = VP.available;
+        $('methodToggle').classList.toggle('hidden', !show);
+        if (!show) { VP.method = 'momo'; $('momoPanel').classList.remove('hidden'); $('vpPanel').classList.add('hidden'); }
+        else setPayMethod(VP.method);
+    }
+    function updateVpPanel() {
+        if (!checkoutCtx) return;
+        const cost = pointsFor(checkoutCtx._total || 0);
+        if ($('vpCost')) $('vpCost').textContent = cost + ' pts';
+        const short = VP.balance < cost;
+        if ($('vpShort')) $('vpShort').classList.toggle('hidden', !short);
+        if ($('vpPayBtn')) { $('vpPayBtn').disabled = short || cost <= 0; $('vpPayBtn').classList.toggle('opacity-40', short || cost <= 0); }
+    }
+    function vpSignIn() { $('vpError').classList.add('hidden'); VeriPoints.signInWithGoogle().then(() => setPayMethod('veripoints')).catch(e => { $('vpError').textContent = (e && e.message) || 'Sign in failed.'; $('vpError').classList.remove('hidden'); }); }
+    async function vpSignOut() { try { await VeriPoints.signOut(); } catch (e) {} }
+    function vpTopUp() { const cost = pointsFor(checkoutCtx._total || 0); try { VeriPoints.openStore({ amount: cost, returnUrl: location.href }); } catch (e) { toast('Top-up store unavailable'); } }
+
+    async function payWithPoints() {
+        const isDon = checkoutCtx.kind === 'donation';
+        const base = checkoutBase();
+        if (isDon && base < 5) { return vpErr('Please enter an amount of at least K5.'); }
+        recalcCheckout();
+        const cost = pointsFor(checkoutCtx._total);
+        if (VP.balance < cost) { updateVpPanel(); return; }
+        $('vpPayBtn').disabled = true; $('vpPayBtn').innerHTML = '<span class="spinner inline-block !w-4 !h-4 !border-2 align-middle mr-1"></span> Paying...';
+        try {
+            const reference = (isDon ? 'donation:' + checkoutCtx.campaign.id : 'ticket:' + checkoutCtx.event.id);
+            const held = await VeriPoints.hold({ amount: cost, reference });
+            if (!held || !held.holdId) throw new Error('Could not reserve points.');
+            const base_ = CONFIG.API_BASE_URL.replace(/\/$/, '');
+            const cap = await fetch(base_ + '/api/veripoints/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ holdId: held.holdId, amount: cost }) }).then(r => r.json()).catch(() => ({}));
+            if (!cap.captured || !cap.id) {
+                try { await fetch(base_ + '/api/veripoints/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ holdId: held.holdId, reason: 'capture failed' }) }); } catch (e) {}
+                throw new Error('Points payment could not be completed. Please use Mobile Money.');
+            }
+            const order = { provider: 'veripoints', phone: '', name: ($('payName').value || VP.user.displayName || 'Supporter').trim(), total: checkoutCtx._total, paidWith: 'veripoints', vpId: cap.id, vpToken: cap.token };
+            if (isDon) await completeDonation(order, null, { id: cap.id, token: cap.token });
+            else await completeTicket(order, null, { id: cap.id, token: cap.token });
+        } catch (e) {
+            vpErr((e && e.message) || 'Points payment failed.');
+            $('vpPayBtn').disabled = false; $('vpPayBtn').innerHTML = '<i class="fas fa-coins mr-1"></i>Pay with points';
+        }
+    }
+    function vpErr(m) { $('vpError').textContent = m; $('vpError').classList.remove('hidden'); }
+
+    // Loyalty earn — bonus, never a blocker. Silent if not configured.
+    async function vpEarn(base, reference) {
+        if (!VP.available || !VP.user || !CONFIG.API_BASE_URL) return;
+        const pts = earnFor(base); if (pts <= 0) return;
+        try {
+            const r = await fetch(CONFIG.API_BASE_URL.replace(/\/$/, '') + '/api/veripoints/earn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: VP.user.uid, amount: pts, reference }) }).then(r => r.json());
+            if (r && r.credited) toast('You earned ' + pts + ' VeriPoints 🎉');
+        } catch (e) { /* non-fatal */ }
+    }
 
     /* ================================================================
        ROUTER / VIEWS
@@ -709,6 +851,7 @@
         else { $('paySummary').innerHTML = '<i class="fas fa-ticket mr-1"></i>' + esc(ctx.event.title) + ' — <b>' + esc(ctx.ticketType.name) + '</b>'; }
 
         recalcCheckout();
+        refreshVpCheckoutUI();
         $('checkoutModal').classList.remove('hidden'); $('checkoutModal').classList.add('flex');
     }
     function closeCheckout() { $('checkoutModal').classList.add('hidden'); $('checkoutModal').classList.remove('flex'); }
@@ -729,6 +872,7 @@
         $('feeTotal').textContent = fmtK(total);
         $('payTotal').textContent = fmtK(total);
         checkoutCtx && (checkoutCtx._total = total, checkoutCtx._fee = fee, checkoutCtx._base = base);
+        updateVpPanel();
     }
 
     // Attempts a real charge + server-signed issuance; returns
@@ -801,32 +945,36 @@
     }
     function showErr(msg) { const err = $('payError'); err.textContent = msg; err.classList.remove('hidden'); $('payStep2').classList.add('hidden'); $('payStep1').classList.remove('hidden'); }
 
-    async function completeTicket(order, tx_ref) {
-        const { id, token } = await issueToken('/api/issue-ticket', tx_ref);
+    async function completeTicket(order, tx_ref, preIssued) {
+        const { id, token } = preIssued || await issueToken('/api/issue-ticket', tx_ref);
         const e = checkoutCtx.event, t = checkoutCtx.ticketType;
         const ticket = {
             id, token, kind: 'ticket', eventId: e.id, eventTitle: e.title, venue: e.venue, date: e.date, time: e.time,
             organizerId: e.organizerId, ticketTypeName: t.name, priceZmw: checkoutCtx._base, platformFee: checkoutCtx._fee,
             buyerName: order.name, buyerPhone: order.phone, buyerEmail: ($('payEmail').value || '').trim(),
-            status: 'valid', createdAt: Date.now(), txRef: tx_ref || null
+            paidWith: order.paidWith || 'momo', status: 'valid', createdAt: Date.now(), txRef: tx_ref || null
         };
         try { await DB.createTicket(ticket); await DB.incrementSold(e.id, t.name, 1); } catch (err) { console.error(err); }
+        vpEarn(checkoutCtx._base, 'ticket:' + e.id);
         LS.set('myTickets', [id, ...(LS.get('myTickets', []))].slice(0, 50));
         lastTicketId = id;
+        $('payStep1').classList.add('hidden');
         $('successMsg').innerHTML = 'Your ticket for <b>' + esc(e.title) + '</b> is ready. Show the QR at the gate.';
         $('successBtn').textContent = 'View my ticket';
         $('payStep2').classList.add('hidden'); $('payStep3').classList.remove('hidden');
     }
-    async function completeDonation(order, tx_ref) {
-        const { id, token } = await issueToken('/api/record-contribution', tx_ref);
+    async function completeDonation(order, tx_ref, preIssued) {
+        const { id, token } = preIssued || await issueToken('/api/record-contribution', tx_ref);
         const c = checkoutCtx.campaign;
         const contribution = {
             id, token, campaignId: c.id, campaignTitle: c.title, organizerId: c.organizerId,
             donorName: order.name, donorPhone: order.phone, amountZmw: checkoutCtx._base, platformFee: checkoutCtx._fee,
-            createdAt: Date.now(), txRef: tx_ref || null
+            paidWith: order.paidWith || 'momo', createdAt: Date.now(), txRef: tx_ref || null
         };
         try { await DB.createContribution(contribution); await DB.addRaised(c.id, checkoutCtx._base); } catch (err) { console.error(err); }
+        vpEarn(checkoutCtx._base, 'donation:' + c.id);
         lastTicketId = null; lastDonationCampaign = c.id;
+        $('payStep1').classList.add('hidden');
         $('successMsg').innerHTML = 'Thank you, ' + esc(order.name) + '! Your gift of <b>' + fmtK(checkoutCtx._base) + '</b> to <b>' + esc(c.title) + '</b> is recorded. Receipt #' + esc(String(id).slice(-8).toUpperCase()) + '.';
         $('successBtn').textContent = 'Back to fundraiser';
         $('payStep2').classList.add('hidden'); $('payStep3').classList.remove('hidden');
@@ -1108,6 +1256,7 @@
        INIT
        ================================================================ */
     (function init() {
+        vpLoad();  // optional VeriPoints layer; no-op unless enabled & reachable
         const params = new URLSearchParams(location.search);
         const tid = params.get('ticket');
         if (tid) { const id = tid.split('.')[0]; showTicket(id); return; }
