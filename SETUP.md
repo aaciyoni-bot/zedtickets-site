@@ -24,20 +24,17 @@ Deploy: `git push` to `main` → GitHub Pages serves it. (See README.)
 
 ---
 
-## 2. Firebase (real accounts + shared data) — one-time console setup
+## 2. Firebase — ALREADY WIRED to the shared "Zed Zambia" project ✅
 
-Demo mode is per-device. For real organizers, tickets that scan across phones, and live fundraiser totals, connect Firebase:
+ZedTickets is connected to the **shared** Firebase project **`zedmall-4301c`** — one backend for the whole ORIZIS Zambia family (ZedTickets, ORIZIS Academy, and any Zambia site that later needs accounts/data). The web config is filled into `index.html` and `scan.html`, and the security rules ([`firestore.rules`](firestore.rules), which also cover Academy) are deployed. `DB.mode` is now `firebase`.
 
-1. Go to <https://console.firebase.google.com> → **Add project** (e.g. `zedtickets`).
-   *(Note: this Google account is currently at its free project quota — delete an unused Firebase project first, or use a different account.)*
-2. **Build → Authentication → Get started → Email/Password → Enable.** (Optional: enable Google sign-in later.)
-3. **Build → Firestore Database → Create database** → Production mode → pick a location (e.g. `eur3` or nearest).
-4. **Firestore → Rules** tab → paste the contents of [`firestore.rules`](firestore.rules) → **Publish**.
-5. **Project settings (gear) → General → Your apps → Web (`</>`)** → register an app → copy the `firebaseConfig` object.
-6. Paste that config into **`CONFIG.firebaseConfig`** in **both** `index.html` and `scan.html`.
-7. Commit & push. The site now uses real accounts and shared data automatically.
+**One manual step remains** — enable the login provider (can't be done from the CLI):
+1. <https://console.firebase.google.com> → project **zedmall-4301c** → **Build → Authentication → Get started**
+2. Enable **Email/Password** (this is what organizer sign-in and Academy accounts use).
 
-> First organizer account: just use **Create an account** on the site's "Sell / Fundraise" screen.
+That's it — then organizers can **Create an account** on the "Sell / Fundraise" screen, and tickets/fundraisers become real and shared across devices. Until then the site still runs and shows demo listings; only sign-in is blocked.
+
+> Redeploying rules (they live in this repo): `firebase deploy --only firestore:rules --project zedmall-4301c`
 
 ---
 
