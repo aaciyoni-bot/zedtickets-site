@@ -220,6 +220,20 @@ app.get('/api/pay/status', async (req, res) => {
     }
 });
 
+// pawaPay callback (webhook). pawaPay requires a callback URL to be configured
+// before it will issue an API token. The site confirms payments by polling
+// /api/pay/status, so this endpoint just needs to accept the notification and
+// acknowledge it with 200. One URL works for all operation types
+// (checkouts / deposits / payouts / refunds).
+app.post('/api/pay/callback', (req, res) => {
+    // (Optional future hardening: verify pawaPay's signature and reconcile
+    //  the transaction here. For now we acknowledge; the client polls status.)
+    console.log('pawaPay callback:', JSON.stringify(req.body || {}).slice(0, 500));
+    res.status(200).json({ received: true });
+});
+// Some setups probe the callback URL with GET — answer 200 so validation passes.
+app.get('/api/pay/callback', (req, res) => res.status(200).json({ ok: true }));
+
 /* =====================================================================
    ISSUE TICKET — only after a verified payment.
    The site calls this once payment is confirmed. The server re-checks the
