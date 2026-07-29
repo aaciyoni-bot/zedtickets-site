@@ -96,5 +96,32 @@ service cloud.firestore {
     match /goojob_members/{uid} {
       allow read, write: if isOwner(uid) && request.auth.uid == uid;
     }
+
+    /* ═══════════════ ZED STORES — ORDERS ═══════════════ */
+    // Shared order inbox for the 6 Zed physical stores (zedtech/mall/glow/home/
+    // solar/baby). Customers are anonymous, so create is public but shape-checked;
+    // orders carry customer PII, so reading/updating is admin-only.
+    function isZedAdmin() {
+      return request.auth != null
+             && request.auth.token.email in ['aaci.yoni@gmail.com', 'office@orizisgroup.com'];
+    }
+    match /orders/{orderId} {
+      allow create: if request.resource.data.store is string
+                    && request.resource.data.total is number
+                    && request.resource.data.items is list
+                    && request.resource.data.status == 'new';
+      allow read, update: if isZedAdmin();
+      allow delete: if false;
+    }
+
+    /* ═══════════════ ORIZIS ACADEMY — SCHOLARSHIPS ═══════════════ */
+    // A learner's own subsidy application (name, contact, age, town, employment,
+    // motivation). Owner may create/read their own; the admin can read them all.
+    // No sensitive ID/biometric data is collected here.
+    match /scholarships/{id} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read:   if isOwner(resource.data.userId) || isZedAdmin();
+      allow update, delete: if false;
+    }
   }
 }
