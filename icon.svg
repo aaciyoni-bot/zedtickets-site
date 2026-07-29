@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+            <linearGradient id="zt-tick" x1="0" y1="0" x2="0.85" y2="1">
+              <stop offset="0" stop-color="#7a86f0"></stop><stop offset="0.34" stop-color="#4450d8"></stop><stop offset="0.72" stop-color="#252a9c"></stop><stop offset="1" stop-color="#14164f"></stop>
+            </linearGradient>
+            <linearGradient id="zt-cyan" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#9ff6ff"></stop><stop offset="1" stop-color="#22b8e8"></stop>
+            </linearGradient>
+            <mask id="zt-mask">
+              <rect x="0" y="0" width="1024" height="1024" fill="#fff"></rect>
+              <circle cx="620" cy="268" r="46" fill="#000"></circle>
+              <circle cx="620" cy="756" r="46" fill="#000"></circle>
+            </mask>
+            <filter id="zt-sh" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#101243" flood-opacity="0.34"></feDropShadow>
+            </filter>
+          </defs>
+          <g transform="rotate(-11 512 512)">
+            <g filter="url(#zt-sh)" mask="url(#zt-mask)">
+              <rect x="132" y="268" width="760" height="488" rx="52" fill="url(#zt-tick)"></rect>
+              <path d="M184 268 H400 L250 756 H184 A52 52 0 0 1 132 704 V320 A52 52 0 0 1 184 268 Z" fill="#ffffff" opacity="0.1"></path>
+              <g fill="#eef4ff" opacity="0.95">
+                <rect x="216" y="368" width="46" height="46"></rect><rect x="278" y="368" width="46" height="46"></rect><rect x="370" y="368" width="46" height="46"></rect>
+                <rect x="216" y="430" width="46" height="46"></rect><rect x="340" y="430" width="30" height="30"></rect><rect x="400" y="440" width="30" height="30"></rect>
+                <rect x="216" y="512" width="46" height="46"></rect><rect x="290" y="500" width="30" height="30"></rect><rect x="370" y="512" width="46" height="46"></rect>
+                <rect x="300" y="560" width="30" height="30"></rect><rect x="420" y="504" width="24" height="24"></rect>
+              </g>
+              <rect x="216" y="618" width="228" height="18" rx="9" fill="#9ff6ff" opacity="0.6"></rect>
+              <path d="M620 300 V724" stroke="#eef4ff" stroke-width="12" stroke-dasharray="20 26" opacity="0.7"></path>
+              <rect x="678" y="380" width="168" height="20" rx="10" fill="#9ff6ff" opacity="0.85"></rect>
+              <rect x="678" y="432" width="120" height="20" rx="10" fill="#9ff6ff" opacity="0.5"></rect>
+              <rect x="678" y="484" width="146" height="20" rx="10" fill="#9ff6ff" opacity="0.3"></rect>
+            </g>
+            <path d="M762 586 L784 640 L840 660 L784 680 L762 734 L740 680 L684 660 L740 640 Z" fill="url(#zt-cyan)"></path>
+          </g>
+</svg>
