@@ -77,10 +77,24 @@ service cloud.firestore {
 
     // Certificates are publicly verifiable (verify.html looks one up by id),
     // created by the learner who earned it, and immutable afterwards.
+    // Anti-forgery: a certificate can only be issued if the learner has a
+    // COMPLETED enrollment for that course (enrollment id = uid_courseId).
     match /certificates/{certId} {
       allow read: if true;                                   // public verification
-      allow create: if isOwner(request.resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId)
+                    && exists(/databases/$(database)/documents/enrollments/$(request.auth.uid + '_' + request.resource.data.courseId))
+                    && get(/databases/$(database)/documents/enrollments/$(request.auth.uid + '_' + request.resource.data.courseId)).data.status == 'completed';
       allow update, delete: if false;
+    }
+
+    /* ═══════════════ GOOJOB / SwipeJob ═══════════════ */
+
+    // A member's own membership record, keyed by their uid, so a subscription
+    // bought on one phone is restored when they sign in on another. It carries
+    // the server-signed receipt (membershipId + token) issued only after a
+    // verified payment — the backend can re-check it via /api/verify-membership.
+    match /goojob_members/{uid} {
+      allow read, write: if isOwner(uid) && request.auth.uid == uid;
     }
   }
 }
